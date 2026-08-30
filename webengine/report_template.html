@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__</title>
+<style>
+:root{
+  --bg:#f6f7f9; --panel:#fff; --ink:#12161c; --muted:#66707d; --line:#e2e6ec;
+  --accent:#2f7d4f; --accent-soft:#e8f4ec;
+  --crit:#c0362c; --crit-bg:#fbeae8; --high:#b7690f; --high-bg:#fdf1e0;
+  --mid:#8a6d1f; --mid-bg:#fbf5e0; --info:#3a6ea5; --info-bg:#e9f0f8; --ok:#2f7d4f; --ok-bg:#e8f4ec;
+  --shadow:0 1px 2px rgba(16,24,40,.06),0 8px 24px rgba(16,24,40,.06);
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#0f1216;--panel:#161b22;--ink:#e6edf3;--muted:#8b97a6;--line:#242c36;
+  --accent:#4ea87a;--accent-soft:#16261e;
+  --crit:#ff7b6b;--crit-bg:#2a1614;--high:#e5a13c;--high-bg:#291d0e;--mid:#d6c26a;--mid-bg:#26220f;
+  --info:#7ab0e8;--info-bg:#111f2c;--ok:#5fc48c;--ok-bg:#12241b;--shadow:none;}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+ font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;}
+a{color:var(--info);text-decoration:none}a:hover{text-decoration:underline}
+header{background:var(--panel);border-bottom:1px solid var(--line);padding:14px 20px;
+ display:flex;align-items:center;gap:14px;flex-wrap:wrap;position:sticky;top:0;z-index:20}
+.logo{font-size:20px;font-weight:700;letter-spacing:-.02em;display:flex;align-items:center;gap:8px}
+.logo small{font-weight:500;color:var(--muted);font-size:12px}
+header .site{color:var(--muted);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.layout{display:flex;align-items:flex-start;gap:0;min-height:calc(100vh - 60px)}
+nav{width:250px;flex:0 0 250px;padding:16px 10px;border-right:1px solid var(--line);
+ background:var(--panel);position:sticky;top:59px;max-height:calc(100vh - 59px);overflow:auto}
+nav h4{margin:14px 8px 6px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+nav button{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;
+ background:none;border:0;color:var(--ink);padding:7px 9px;border-radius:7px;cursor:pointer;
+ font:inherit;text-align:left}
+nav button:hover{background:var(--bg)}
+nav button.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+nav .n{font-variant-numeric:tabular-nums;font-size:12px;color:var(--muted);
+ background:var(--bg);border-radius:20px;padding:1px 8px}
+nav button.on .n{background:var(--panel);color:var(--accent)}
+main{flex:1;padding:20px;min-width:0}
+h2{margin:0 0 4px;font-size:19px;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:0 0 16px;font-size:13px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;box-shadow:var(--shadow)}
+.card .v{font-size:26px;font-weight:650;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.card .k{color:var(--muted);font-size:12px;margin-top:2px}
+.card.clic{cursor:pointer}.card.clic:hover{border-color:var(--accent)}
+.card.crit .v{color:var(--crit)}.card.high .v{color:var(--high)}.card.ok .v{color:var(--ok)}
+.toolbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+input[type=search],select{background:var(--panel);border:1px solid var(--line);color:var(--ink);
+ padding:7px 10px;border-radius:8px;font:inherit;min-width:220px}
+button.btn{background:var(--panel);border:1px solid var(--line);color:var(--ink);padding:7px 12px;
+ border-radius:8px;cursor:pointer;font:inherit}
+button.btn:hover{border-color:var(--accent);color:var(--accent)}
+.wrap{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:auto;box-shadow:var(--shadow)}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{position:sticky;top:0;background:var(--panel);text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);
+ font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;z-index:2}
+th:hover{color:var(--accent)}
+td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--bg)}
+td.u{max-width:520px;word-break:break-all}
+td.t{max-width:340px}
+.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pill{display:inline-block;padding:1px 8px;border-radius:20px;font-size:11.5px;font-weight:600;white-space:nowrap}
+.s2{background:var(--ok-bg);color:var(--ok)}.s3{background:var(--info-bg);color:var(--info)}
+.s4{background:var(--crit-bg);color:var(--crit)}.s5{background:var(--crit-bg);color:var(--crit)}
+.s0{background:var(--crit-bg);color:var(--crit)}
+.sev-critique{background:var(--crit-bg);color:var(--crit)}.sev-eleve{background:var(--high-bg);color:var(--high)}
+.sev-moyen{background:var(--mid-bg);color:var(--mid)}.sev-info{background:var(--info-bg);color:var(--info)}
+.sev-ok{background:var(--ok-bg);color:var(--ok)}
+.mut{color:var(--muted)}
+.grp{background:var(--panel);border:1px solid var(--line);border-radius:12px;margin-bottom:10px;
+ box-shadow:var(--shadow);overflow:hidden}
+.grp>summary{cursor:pointer;padding:11px 14px;font-weight:600;display:flex;gap:10px;align-items:center}
+.grp>summary::-webkit-details-marker{display:none}
+.grp>summary:before{content:"▸";color:var(--muted);font-size:12px}
+.grp[open]>summary:before{content:"▾"}
+.grp .body{padding:0 14px 12px 32px}
+.grp .body div{padding:3px 0;word-break:break-all;font-size:12.5px}
+.empty{padding:40px;text-align:center;color:var(--muted)}
+#drawer{position:fixed;top:0;right:0;height:100%;width:min(640px,92vw);background:var(--panel);
+ border-left:1px solid var(--line);transform:translateX(101%);transition:transform .18s ease;z-index:50;
+ overflow:auto;box-shadow:-12px 0 34px rgba(0,0,0,.13)}
+#drawer.open{transform:none}
+#drawer .dh{position:sticky;top:0;background:var(--panel);border-bottom:1px solid var(--line);
+ padding:14px 18px;display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+#drawer .db{padding:16px 18px 60px}
+#drawer h3{margin:0;font-size:15px;word-break:break-all}
+#drawer h5{margin:20px 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.kv{display:grid;grid-template-columns:150px 1fr;gap:6px 12px;font-size:13px}
+.kv b{font-weight:500;color:var(--muted)}
+.kv span{word-break:break-word}
+.close{background:none;border:0;color:var(--muted);font-size:22px;cursor:pointer;line-height:1}
+.tag{font-size:11px;padding:1px 6px;border-radius:5px;background:var(--bg);color:var(--muted);border:1px solid var(--line)}
+.bar{height:6px;border-radius:4px;background:var(--bg);overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;background:var(--accent)}
+.help{background:var(--info-bg);color:var(--ink);border:1px solid var(--line);border-radius:10px;
+ padding:10px 12px;font-size:12.5px;margin-bottom:12px}
+footer{padding:24px 20px;color:var(--muted);font-size:12px;text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">⚙️ WebEngine Crawler <small>rapport SEO</small></div>
+  <div class="site" id="site"></div>
+  <div style="margin-left:auto" class="site" id="when"></div>
+</header>
+<div class="layout">
+  <nav id="nav"></nav>
+  <main id="main"></main>
+</div>
+<div id="drawer"><div class="dh"><h3 id="dtitle"></h3><button class="close" onclick="closeDrawer()">×</button></div><div class="db" id="dbody"></div></div>
+<footer>Genere par WebEngine Crawler — crawler SEO local et gratuit.</footer>
+<script id="we-data" type="application/json">__DATA__</script>
+<script>
+const D = JSON.parse(document.getElementById('we-data').textContent);
+const P = D.pages, IN = D.inlinks, byUrl = {};
+P.forEach(p => byUrl[p.url] = p);
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const nb = n => (n==null||n==='')?'':Number(n).toLocaleString('fr-FR');
+const short = (u,n=90) => u && u.length>n ? u.slice(0,n-1)+'…' : (u||'');
+const inl = u => (IN[u]||[]).filter(l=>l.type==='lien');
+const statusPill = s => { if(s===null||s===undefined) return '<span class="pill mut">?</span>';
+  const c = s===0?'s0':'s'+String(s)[0]; return '<span class="pill '+c+'">'+(s===0?'ERR':s)+'</span>'; };
+const sevPill = s => '<span class="pill sev-'+s+'">'+s+'</span>';
+
+document.getElementById('site').textContent = D.meta.start_url;
+document.getElementById('when').textContent = D.meta.date + ' · ' + D.meta.duree + 's de crawl';
+
+/* ------------------------------------------------------------------ vues */
+const R = D.resume, G = D.gsc;
+const has4xx = P.filter(p=>p.status>=400||p.status===0).length;
+const VIEWS = [
+ {id:'apercu', grp:'Vue', label:"Vue d'ensemble", n:null},
+ {id:'issues', grp:'Vue', label:'Problemes detectes', n:D.issues.reduce((a,i)=>a+ (i.severite==='critique'||i.severite==='eleve'?1:0),0)},
+ {id:'gsc', grp:'Search Console', label:'URL Search Console', n:G?G.items.length:0, hide:!G},
+ {id:'gsc_pb', grp:'Search Console', label:'URL a problemes', n:G?G.items.filter(i=>i.gravite!=='ok').length:0, hide:!G},
+ {id:'orphelines', grp:'Search Console', label:'Pages orphelines', n:G?G.items.filter(i=>i.liens_entrants===0).length:0, hide:!G},
+ {id:'erreurs', grp:'Qualite', label:'404 & erreurs', n:has4xx},
+ {id:'h1dup', grp:'Qualite', label:'H1 en double', n:D.doublons.h1.length},
+ {id:'h1', grp:'Qualite', label:'H1 (toutes les pages)', n:null},
+ {id:'titledup', grp:'Qualite', label:'Titles en double', n:D.doublons.title.length},
+ {id:'descdup', grp:'Qualite', label:'Descriptions en double', n:D.doublons.description.length},
+ {id:'contdup', grp:'Qualite', label:'Contenus identiques', n:D.doublons.contenu.length},
+ {id:'redirs', grp:'Qualite', label:'Redirections', n:P.filter(p=>p.status>=300&&p.status<400).length},
+ {id:'urls', grp:'Donnees', label:'Toutes les URL', n:P.length},
+ {id:'externes', grp:'Donnees', label:'Liens sortants', n:D.externes.length},
+ {id:'sitemap', grp:'Donnees', label:'Sitemap', n:D.sitemap.length},
+].filter(v=>!v.hide);
+
+let current = 'apercu', ctx = {};
+function buildNav(){
+  const n = document.getElementById('nav'); let html='', grp='';
+  VIEWS.forEach(v=>{ if(v.grp!==grp){grp=v.grp; html+='<h4>'+grp+'</h4>';}
+    html += '<button data-v="'+v.id+'"><span>'+v.label+'</span>'+(v.n!==null?'<span class="n">'+nb(v.n)+'</span>':'')+'</button>';});
+  n.innerHTML = html;
+  n.querySelectorAll('button').forEach(b=>b.onclick=()=>go(b.dataset.v));
+}
+function go(v, c){ current=v; ctx=c||{}; 
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on', b.dataset.v===v));
+  window.scrollTo(0,0); render(); }
+
+/* --------------------------------------------------------------- tableau */
+let sortKey=null, sortDir=1, filter='';
+function table(cols, rows, opts){
+  opts = opts||{};
+  const id = 'tb'+Math.random().toString(36).slice(2,7);
+  let data = rows;
+  if(filter){ const f=filter.toLowerCase();
+    data = rows.filter(r=>cols.some(c=>String(c.raw?c.raw(r):(r[c.k]??'')).toLowerCase().includes(f))); }
+  if(sortKey){ const c = cols.find(c=>c.k===sortKey);
+    if(c) data = data.slice().sort((a,b)=>{ let x=c.raw?c.raw(a):a[c.k], y=c.raw?c.raw(b):b[c.k];
+      if(typeof x==='number'||typeof y==='number'){x=x||0;y=y||0;return (x-y)*sortDir;}
+      return String(x??'').localeCompare(String(y??''),'fr')*sortDir; }); }
+  const cap = opts.limit||2000;
+  const shown = data.slice(0,cap);
+  let h = '<div class="toolbar"><input type="search" placeholder="Filtrer…" value="'+esc(filter)+'" id="flt">'+
+    '<button class="btn" onclick="exportCSV()">Exporter CSV</button>'+
+    '<span class="mut">'+nb(data.length)+' ligne(s)'+(data.length>cap?' — '+nb(cap)+' affichees':'')+'</span></div>';
+  h += '<div class="wrap"><table id="'+id+'"><thead><tr>';
+  cols.forEach(c=>h+='<th data-k="'+c.k+'" class="'+(c.num?'num':'')+'">'+esc(c.t)+(sortKey===c.k?(sortDir>0?' ▲':' ▼'):'')+'</th>');
+  h += '</tr></thead><tbody>';
+  if(!shown.length) h += '<tr><td colspan="'+cols.length+'"><div class="empty">Rien a afficher 🎉</div></td></tr>';
+  shown.forEach(r=>{ h+='<tr'+(r.url?' data-u="'+esc(r.url)+'"':'')+'>';
+    cols.forEach(c=>h+='<td class="'+(c.cls||'')+(c.num?' num':'')+'">'+(c.fn?c.fn(r):esc(r[c.k]??''))+'</td>');
+    h+='</tr>'; });
+  h += '</tbody></table></div>';
+  window.__csv = ()=>toCSV(cols, data);
+  setTimeout(()=>{
+    const t=document.getElementById(id); if(!t) return;
+    t.querySelectorAll('th').forEach(th=>th.onclick=()=>{ const k=th.dataset.k;
+      if(sortKey===k) sortDir=-sortDir; else {sortKey=k;sortDir=1;} render(true); });
+    t.querySelectorAll('tbody tr[data-u]').forEach(tr=>tr.onclick=e=>{
+      if(e.target.tagName==='A') return; openDrawer(tr.dataset.u); });
+    const f=document.getElementById('flt');
+    if(f){ f.oninput=()=>{ filter=f.value; render(true);
+        const nf=document.getElementById('flt'); if(nf){nf.focus();nf.setSelectionRange(nf.value.length,nf.value.length);} }; }
+  },0);
+  return h;
+}
+function toCSV(cols, rows){
+  const q = v => '"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+  const head = cols.map(c=>q(c.t)).join(';');
+  const body = rows.map(r=>cols.map(c=>q(c.raw?c.raw(r):(r[c.k]??''))).join(';')).join('\n');
+  return head+'\n'+body;
+}
+function exportCSV(){
+  const blob = new Blob(["﻿"+window.__csv()], {type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='webengine-'+current+'.csv'; a.click();
+}
+
+/* --------------------------------------------------------------- colonnes */
+const C_URL = {k:'url',t:'URL',cls:'u',fn:r=>'<a href="'+esc(r.url)+'" target="_blank" rel="noopener">'+esc(short(r.url,110))+'</a>'};
+const C_ST  = {k:'status',t:'Statut',num:true,fn:r=>statusPill(r.status)};
+const C_IN  = {k:'nin',t:'Liens entrants',num:true,raw:r=>inl(r.url).length,fn:r=>nb(inl(r.url).length)};
+const C_TIT = {k:'title',t:'Title',cls:'t',fn:r=>esc(short(r.title,70))};
+const C_H1  = {k:'h1',t:'H1',cls:'t',raw:r=>(r.h1||[]).join(' | '),fn:r=>esc(short((r.h1||[]).join(' | '),70))};
+
+/* ------------------------------------------------------------------ rendu */
+function render(keep){
+  const m = document.getElementById('main');
+  const v = current;
+  if(v==='apercu') m.innerHTML = viewApercu();
+  else if(v==='urls') m.innerHTML = head('Toutes les URL crawlees','Cliquez une ligne pour voir le detail et les liens entrants.')+
+    table([C_URL,C_ST,{k:'indexability',t:'Indexabilite'},C_TIT,C_H1,
+      {k:'word_count',t:'Mots',num:true,fn:r=>nb(r.word_count)},{k:'depth',t:'Prof.',num:true},
+      C_IN,{k:'response_time',t:'Temps (s)',num:true}], P);
+  else if(v==='erreurs') m.innerHTML = head('404 et autres erreurs',
+      'Chaque ligne indique combien de pages du site pointent vers cette URL cassee : ce sont elles qu\'il faut corriger.')+
+    table([C_URL,C_ST,{k:'status_text',t:'Detail',fn:r=>esc(r.status_text||r.error||'')},C_IN,
+      {k:'src',t:'Exemples de pages qui pointent dessus',cls:'u',raw:r=>inl(r.url).map(l=>l.from).join(' '),
+       fn:r=>inl(r.url).slice(0,3).map(l=>'<div>'+esc(short(l.from,80))+' <span class="tag">'+esc(short(l.anchor,32))+'</span></div>').join('')||'<span class="mut">aucun lien interne</span>'}],
+      P.filter(p=>p.status>=400||p.status===0));
+  else if(v==='redirs') m.innerHTML = head('Redirections','Les liens internes devraient pointer directement sur l\'URL finale.')+
+    table([C_URL,C_ST,{k:'redirect_to',t:'Redirige vers',cls:'u',fn:r=>esc(short(r.redirect_to,90))},C_IN], 
+      P.filter(p=>p.status>=300&&p.status<400));
+  else if(v==='h1') m.innerHTML = head('H1 de toutes les pages','')+
+    table([C_URL,C_ST,C_H1,{k:'nh1',t:'Nb H1',num:true,raw:r=>(r.h1||[]).length},
+      {k:'len',t:'Longueur',num:true,raw:r=>((r.h1||[])[0]||'').length},C_TIT], P.filter(p=>p.is_html));
+  else if(v==='h1dup') m.innerHTML = head('H1 en double','Un H1 identique sur plusieurs pages = risque de cannibalisation.')+groups(D.doublons.h1);
+  else if(v==='titledup') m.innerHTML = head('Titles en double','')+groups(D.doublons.title);
+  else if(v==='descdup') m.innerHTML = head('Meta descriptions en double','')+groups(D.doublons.description);
+  else if(v==='contdup') m.innerHTML = head('Pages au contenu strictement identique','Comparaison sur le texte visible de la page.')+groups(D.doublons.contenu, true);
+  else if(v==='issues') m.innerHTML = viewIssues();
+  else if(v==='issue') m.innerHTML = viewIssue();
+  else if(v==='gsc') m.innerHTML = viewGsc(G.items, 'URL de la Search Console',
+      'Croisement entre votre export Search Console et le crawl : statut reel, indexabilite et provenance de chaque URL.');
+  else if(v==='gsc_pb') m.innerHTML = viewGsc(G.items.filter(i=>i.gravite!=='ok'), 'URL Search Console a problemes',
+      'Ces URL rapportent du trafic ou des impressions mais posent un souci technique.');
+  else if(v==='orphelines') m.innerHTML = viewGsc(G.items.filter(i=>i.liens_entrants===0), 'Pages orphelines',
+      'Connues de Google mais aucun lien interne ne pointe vers elles. Ajoutez-leur un lien depuis une page pertinente.');
+  else if(v==='externes') m.innerHTML = head('Liens sortants','')+
+    table([{k:'url',t:'URL externe',cls:'u',fn:r=>'<a href="'+esc(r.url)+'" target="_blank" rel="noopener">'+esc(short(r.url,100))+'</a>'},
+      {k:'status',t:'Statut',num:true,fn:r=>r.status===null?'<span class="mut">non verifie</span>':statusPill(r.status)},
+      {k:'count',t:'Occurrences',num:true},
+      {k:'src',t:'Depuis',cls:'u',raw:r=>(r.sources||[]).map(s=>s.from).join(' '),
+       fn:r=>(r.sources||[]).slice(0,2).map(s=>'<div>'+esc(short(s.from,70))+'</div>').join('')}], D.externes);
+  else if(v==='sitemap') m.innerHTML = head('URL declarees dans le sitemap','')+
+    table([{k:'url',t:'URL',cls:'u',fn:r=>'<a href="'+esc(r.url)+'" target="_blank">'+esc(short(r.url,110))+'</a>'},
+      {k:'status',t:'Statut',num:true,fn:r=>r.status===null?'<span class="mut">non crawlee</span>':statusPill(r.status)},
+      {k:'nin',t:'Liens entrants',num:true,raw:r=>inl(r.url).length,fn:r=>nb(inl(r.url).length)}],
+      D.sitemap.map(u=>({url:u,status:byUrl[u]?byUrl[u].status:null})));
+}
+function head(t,s){ return '<h2>'+esc(t)+'</h2><p class="sub">'+esc(s)+'</p>'; }
+
+function viewApercu(){
+  const c = (v,k,cls,view)=>'<div class="card '+(cls||'')+(view?' clic':'')+'"'+(view?' onclick="go(\''+view+'\')"':'')+
+    '><div class="v">'+nb(v)+'</div><div class="k">'+esc(k)+'</div></div>';
+  let h = head('Vue d\'ensemble', D.meta.start_url+' — '+nb(R.total)+' URL analysees en '+D.meta.duree+' s');
+  h += '<div class="cards">'+
+    c(R.total,'URL crawlees','','urls')+
+    c(R.ok,'Reponses 200','ok')+
+    c(R.erreurs_4xx,'Erreurs 4xx',R.erreurs_4xx?'crit':'', 'erreurs')+
+    c(R.erreurs_5xx,'Erreurs 5xx / injoignables',R.erreurs_5xx?'crit':'','erreurs')+
+    c(R.redirections,'Redirections',R.redirections?'high':'','redirs')+
+    c(R.h1_dupliques,'Groupes de H1 en double',R.h1_dupliques?'high':'','h1dup')+
+    c(R.sans_h1,'Pages sans H1',R.sans_h1?'high':'')+
+    c(R.titles_dupliques,'Groupes de titles en double',R.titles_dupliques?'high':'','titledup')+
+    c(R.indexables,'Pages indexables','ok')+
+    c(R.mots_moyen,'Mots / page (moyenne)')+
+    c(R.profondeur_max,'Profondeur max')+
+    c(R.temps_moyen,'Temps de reponse moyen (s)')+
+  '</div>';
+  if(G){
+    const g=G.resume;
+    h += '<h2>Search Console</h2><p class="sub">'+nb(g.total)+' URL importees — '+nb(g.clics)+' clics cumules</p><div class="cards">'+
+      c(g.ok,'URL saines','ok','gsc')+
+      c(g.cassees,'URL cassees (4xx/5xx)',g.cassees?'crit':'','gsc_pb')+
+      c(g.redirigees,'URL redirigees',g.redirigees?'high':'','gsc_pb')+
+      c(g.orphelines,'URL orphelines',g.orphelines?'high':'','orphelines')+
+      c(g.hors_crawl,'Absentes du crawl',g.hors_crawl?'high':'','gsc_pb')+
+      c(g.clics_perdus,'Clics sur des URL a problemes',g.clics_perdus?'crit':'','gsc_pb')+
+    '</div>';
+  }
+  h += '<h2>Principaux problemes</h2><p class="sub">Tries par gravite.</p>';
+  h += table([{k:'label',t:'Probleme',fn:r=>'<a href="#" onclick="go(\'issue\',{id:\''+r.id+'\'});return false;">'+esc(r.label)+'</a>'},
+    {k:'severite',t:'Gravite',fn:r=>sevPill(r.severite)},
+    {k:'count',t:'URL concernees',num:true,fn:r=>nb(r.count)},
+    {k:'pct',t:'% du site',num:true,raw:r=>Math.round(r.count/Math.max(1,R.total)*100),
+     fn:r=>Math.round(r.count/Math.max(1,R.total)*100)+' %'}], D.issues.slice(0,12));
+  return h;
+}
+function viewIssues(){
+  return head('Tous les problemes detectes','Cliquez un probleme pour voir la liste des URL concernees.')+
+   table([{k:'label',t:'Probleme',fn:r=>'<a href="#" onclick="go(\'issue\',{id:\''+r.id+'\'});return false;">'+esc(r.label)+'</a>'},
+    {k:'severite',t:'Gravite',fn:r=>sevPill(r.severite)},
+    {k:'count',t:'URL',num:true,fn:r=>nb(r.count)},
+    {k:'aide',t:'Que faire ?',fn:r=>esc(r.aide||'')}], D.issues);
+}
+function viewIssue(){
+  const it = D.issues.find(i=>i.id===ctx.id); if(!it) return viewIssues();
+  let h = head(it.label, nb(it.count)+' URL concernees');
+  if(it.aide) h += '<div class="help">💡 '+esc(it.aide)+'</div>';
+  h += '<div class="toolbar"><button class="btn" onclick="go(\'issues\')">← Tous les problemes</button></div>';
+  const rows = it.urls.map(u=>byUrl[u]||{url:u,status:null,title:'',h1:[]});
+  return h + table([C_URL,C_ST,C_TIT,C_H1,C_IN,{k:'depth',t:'Prof.',num:true}], rows);
+}
+function groups(gs, hideVal){
+  if(!gs.length) return '<div class="wrap"><div class="empty">Aucun doublon 🎉</div></div>';
+  let h='<div class="toolbar"><input type="search" id="flt2" placeholder="Filtrer…" value="'+esc(filter)+'"><span class="mut">'+nb(gs.length)+' groupe(s)</span></div>';
+  const f=filter.toLowerCase();
+  gs.filter(g=>!f||g.valeur.includes(f)||g.urls.some(u=>u.toLowerCase().includes(f))).slice(0,500).forEach(g=>{
+    h += '<details class="grp"><summary><span>'+esc(hideVal?g.urls.length+' pages au contenu identique':g.valeur)+
+      '</span><span class="pill sev-eleve">'+g.count+' pages</span></summary><div class="body">'+
+      g.urls.map(u=>'<div><a href="#" onclick="openDrawer(\''+esc(u)+'\');return false;">'+esc(u)+'</a> '+
+        (byUrl[u]?statusPill(byUrl[u].status):'')+'</div>').join('')+'</div></details>';
+  });
+  setTimeout(()=>{const e=document.getElementById('flt2'); if(e) e.oninput=()=>{filter=e.value;render(true);
+    const n=document.getElementById('flt2'); if(n){n.focus();n.setSelectionRange(n.value.length,n.value.length);}};},0);
+  return h;
+}
+function viewGsc(items, t, s){
+  return head(t,s)+table([
+    {k:'url',t:'URL',cls:'u',fn:r=>'<a href="'+esc(r.url)+'" target="_blank" rel="noopener">'+esc(short(r.url,90))+'</a>'},
+    {k:'clics',t:'Clics',num:true,fn:r=>nb(r.clics)},
+    {k:'impressions',t:'Impr.',num:true,fn:r=>nb(r.impressions)},
+    {k:'position',t:'Pos.',num:true,fn:r=>r.position?Number(r.position).toFixed(1):''},
+    {k:'statut',t:'Statut',num:true,fn:r=>statusPill(r.statut)},
+    {k:'verdict',t:'Diagnostic',fn:r=>'<span class="pill sev-'+r.gravite+'">'+esc(r.verdict)+'</span>'},
+    {k:'liens_entrants',t:'Liens entrants',num:true,fn:r=>nb(r.liens_entrants)},
+    {k:'provenance',t:"D'ou vient l'URL ?",fn:r=>esc(r.provenance)+
+      ((r.sources||[]).length?'<div class="mut">ex. '+esc(short(r.sources[0].from,60))+'</div>':'')}
+  ], items);
+}
+
+/* --------------------------------------------------------------- drawer */
+function openDrawer(u){
+  const p = byUrl[u]; const g = G ? G.items.find(i=>i.url===u) : null;
+  const links = IN[u]||[];
+  document.getElementById('dtitle').innerHTML = '<a href="'+esc(u)+'" target="_blank" rel="noopener">'+esc(u)+'</a>';
+  let h='';
+  const row=(k,v)=>v===''||v===null||v===undefined?'':'<b>'+esc(k)+'</b><span>'+v+'</span>';
+  if(p){
+    h += '<div class="kv">'+
+      row('Statut', statusPill(p.status)+' '+esc(p.status_text||p.error||''))+
+      row('Indexabilite', esc(p.indexability))+
+      row('Type', esc(p.content_type))+
+      row('Profondeur', p.depth+' clic(s) depuis le depart')+
+      row('Decouverte via', esc(p.source))+
+      row('Title', esc(p.title)+' <span class="tag">'+(p.title||'').length+' car.</span>')+
+      row('Meta description', esc(p.meta_description)+(p.meta_description?' <span class="tag">'+p.meta_description.length+' car.</span>':''))+
+      row('H1', (p.h1||[]).map(x=>esc(x)).join('<br>')+(p.h1&&p.h1.length>1?' <span class="pill sev-moyen">'+p.h1.length+' H1</span>':''))+
+      row('H2', (p.h2||[]).slice(0,8).map(x=>esc(x)).join('<br>'))+
+      row('Canonical', p.canonical===u?'<span class="mut">auto-referente</span>':esc(p.canonical))+
+      row('Meta robots', esc(p.meta_robots||p.x_robots))+
+      row('Redirige vers', esc(p.redirect_to))+
+      row('Mots', nb(p.word_count)+' · ratio texte '+p.text_ratio+' %')+
+      row('Images', nb(p.images)+(p.images_no_alt?' — <span class="pill sev-moyen">'+p.images_no_alt+' sans alt</span>':''))+
+      row('Liens', nb(p.links_internal)+' internes · '+nb(p.links_external)+' externes')+
+      row('Poids / temps', nb(Math.round(p.size/1024))+' Ko · '+p.response_time+' s')+
+      row('Langue', esc(p.lang))+
+    '</div>';
+  } else {
+    h += '<div class="help">Cette URL n\'a pas ete atteinte par le crawl'+(g&&g.statut?' (statut verifie en direct : '+g.statut+')':'')+'.</div>';
+  }
+  if(g){
+    h += '<h5>Search Console</h5><div class="kv">'+
+      row('Clics', nb(g.clics))+row('Impressions', nb(g.impressions))+
+      row('Position moyenne', g.position?Number(g.position).toFixed(1):'')+
+      row('Diagnostic','<span class="pill sev-'+g.gravite+'">'+esc(g.verdict)+'</span>')+
+      row('Provenance', esc(g.provenance))+'</div>';
+  }
+  h += '<h5>Liens entrants ('+links.length+')</h5>';
+  if(!links.length) h += '<p class="mut">Aucune page du site ne pointe vers cette URL — elle est orpheline.</p>';
+  else{
+    h += '<div class="wrap"><table><thead><tr><th>Page source</th><th>Ancre</th><th>Type</th></tr></thead><tbody>';
+    links.slice(0,200).forEach(l=>{ h+='<tr><td class="u"><a href="#" onclick="openDrawer(\''+esc(l.from)+'\');return false;">'+
+      esc(short(l.from,70))+'</a></td><td>'+esc(l.anchor)+'</td><td><span class="tag">'+esc(l.type)+(l.rel?' '+esc(l.rel):'')+'</span></td></tr>'; });
+    h += '</tbody></table></div>';
+  }
+  const out = D.outlinks[u]||[];
+  if(out.length){
+    h += '<h5>Liens internes sortants ('+out.length+')</h5><div class="wrap"><table><tbody>';
+    out.slice(0,100).forEach(o=>{h+='<tr><td class="u"><a href="#" onclick="openDrawer(\''+esc(o)+'\');return false;">'+esc(short(o,80))+'</a></td><td class="num">'+
+      (byUrl[o]?statusPill(byUrl[o].status):'')+'</td></tr>';});
+    h += '</tbody></table></div>';
+  }
+  document.getElementById('dbody').innerHTML = h;
+  document.getElementById('drawer').classList.add('open');
+}
+function closeDrawer(){ document.getElementById('drawer').classList.remove('open'); }
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeDrawer(); });
+
+buildNav(); go('apercu');
+</script>
+</body>
+</html>

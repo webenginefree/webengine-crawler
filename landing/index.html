@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WebEngine Crawler — crawler SEO gratuit et sans limite</title>
+<meta name="description" content="WebEngine Crawler est un crawler SEO gratuit et open source : H1 en double, 404 avec les pages qui pointent dessus, et croisement de votre export Search Console. Alternative libre à Screaming Frog, sans limite de 500 URL.">
+<link rel="canonical" href="https://votre-site.fr/webengine-crawler">
+<meta property="og:type" content="website">
+<meta property="og:title" content="WebEngine Crawler — crawler SEO gratuit et sans limite">
+<meta property="og:description" content="H1 en double, 404 et leurs liens entrants, croisement Search Console. Open source, 100 % local, sans limite de 500 URL.">
+<meta property="og:image" content="https://votre-site.fr/webengine-crawler/img/01-vue-ensemble.jpg">
+<meta property="og:locale" content="fr_FR">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  --ground:#eff1ed; --surface:#fbfcfa; --surface-2:#e7eae3;
+  --ink:#131714; --muted:#5f6b62; --line:#d9ded3;
+  --accent:#2c6b47; --accent-ink:#1f4e34; --accent-soft:#dcece2;
+  --crit:#b0362a; --crit-soft:#f6e3e0; --warn:#976409; --warn-soft:#f7ebd9;
+  --ok:#2c6b47; --ok-soft:#dcece2; --info:#2c5b86; --info-soft:#e0e9f2;
+  --shadow:0 1px 2px rgba(19,23,20,.05), 0 14px 34px -18px rgba(19,23,20,.28);
+  --radius:14px;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0e1210; --surface:#161b18; --surface-2:#1d2420;
+    --ink:#e4eae5; --muted:#8f9c94; --line:#252d28;
+    --accent:#63b98b; --accent-ink:#8fd4ac; --accent-soft:#152420;
+    --crit:#f2867a; --crit-soft:#2a1613; --warn:#dda63f; --warn-soft:#291f0e;
+    --ok:#63b98b; --ok-soft:#152420; --info:#7fb0dd; --info-soft:#121f2b;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 18px 40px -20px rgba(0,0,0,.7);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0e1210; --surface:#161b18; --surface-2:#1d2420;
+  --ink:#e4eae5; --muted:#8f9c94; --line:#252d28;
+  --accent:#63b98b; --accent-ink:#8fd4ac; --accent-soft:#152420;
+  --crit:#f2867a; --crit-soft:#2a1613; --warn:#dda63f; --warn-soft:#291f0e;
+  --ok:#63b98b; --ok-soft:#152420; --info:#7fb0dd; --info-soft:#121f2b;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 18px 40px -20px rgba(0,0,0,.7);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased}
+img{max-width:100%;display:block;height:auto}
+a{color:var(--accent-ink);text-underline-offset:3px}
+h1,h2,h3{font-family:Fraunces,Georgia,"Times New Roman",serif;font-weight:600;
+  letter-spacing:-.015em;line-height:1.1;text-wrap:balance;margin:0}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+.chip{display:inline-flex;align-items:center;gap:6px;font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:12px;font-weight:600;letter-spacing:.04em;padding:3px 9px;border-radius:999px}
+.chip.c200{background:var(--ok-soft);color:var(--ok)}
+.chip.c301{background:var(--info-soft);color:var(--info)}
+.chip.c404{background:var(--crit-soft);color:var(--crit)}
+.chip.cwarn{background:var(--warn-soft);color:var(--warn)}
+.mono{font-family:"IBM Plex Mono",ui-monospace,monospace}
+
+/* ---------------------------------------------------------------- header */
+.top{border-bottom:1px solid var(--line);background:var(--surface);position:sticky;top:0;z-index:10}
+.top .wrap{display:flex;align-items:center;gap:16px;height:60px}
+.brand{font-family:Fraunces,Georgia,serif;font-weight:700;font-size:19px;display:flex;align-items:center;gap:9px;
+  text-decoration:none;color:var(--ink)}
+.brand .dot{width:9px;height:9px;border-radius:50%;background:var(--accent)}
+.top nav{margin-left:auto;display:flex;gap:22px;align-items:center;font-size:14.5px}
+.top nav a{color:var(--muted);text-decoration:none}
+.top nav a:hover{color:var(--ink)}
+.top nav a.btn{color:#fff}
+.top nav a.btn:hover{color:#fff}
+.btn{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#fff;
+  padding:11px 20px;border-radius:9px;text-decoration:none;font-weight:600;font-size:15px;border:1px solid transparent}
+.btn:hover{filter:brightness(1.07)}
+.btn.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+.btn.ghost:hover{border-color:var(--accent);color:var(--accent-ink);filter:none}
+.btn.sm{padding:8px 15px;font-size:14px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
+
+/* ------------------------------------------------------------------ hero */
+.hero{padding:76px 0 12px}
+.hero .eyebrow{display:flex;gap:8px;align-items:center;margin-bottom:22px;flex-wrap:wrap}
+.hero h1{font-size:clamp(38px,5.6vw,62px);max-width:15ch}
+.hero h1 em{font-style:normal;color:var(--accent-ink)}
+.lede{font-size:19.5px;color:var(--muted);max-width:56ch;margin:22px 0 0}
+.lede strong{color:var(--ink);font-weight:600}
+.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:30px;align-items:center}
+.actions .note{font-size:14px;color:var(--muted)}
+.strip{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);
+  border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;margin-top:52px}
+.strip div{background:var(--surface);padding:18px 20px}
+.strip .v{font-family:Fraunces,Georgia,serif;font-size:27px;font-weight:600;font-variant-numeric:tabular-nums}
+.strip .k{font-size:13px;color:var(--muted);margin-top:2px}
+
+/* --------------------------------------------------------------- sections */
+section{padding:72px 0}
+.rule{border:0;border-top:1px solid var(--line);margin:0}
+.head{max-width:60ch;margin-bottom:36px}
+.head h2{font-size:clamp(27px,3.4vw,36px)}
+.head p{color:var(--muted);margin:14px 0 0;font-size:17.5px}
+.kicker{font-family:"IBM Plex Mono",monospace;font-size:12.5px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:14px}
+
+.qs{display:flex;flex-direction:column}
+.q{display:grid;grid-template-columns:minmax(0,6fr) minmax(0,5fr);gap:8px 46px;
+  align-items:start;padding:52px 0}
+.q + .q{border-top:1px solid var(--line)}
+.q figure{grid-column:1/-1;margin-top:28px}
+.q h3{font-size:25px;margin-bottom:12px}
+.q p{color:var(--muted);margin:0}
+.q ul{margin:0;padding-left:20px;color:var(--muted);font-size:15.5px;
+  border-left:2px solid var(--accent-soft)}
+.q li{margin-bottom:5px}
+.q li b{color:var(--ink);font-weight:600}
+.shot{border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);background:var(--surface)}
+.shot img{width:100%}
+figure{margin:0}
+figcaption{font-size:13.5px;color:var(--muted);margin-top:10px}
+
+.wide{border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);background:var(--surface)}
+
+/* ------------------------------------------------------------------ code */
+pre{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px 20px;
+  overflow-x:auto;font-family:"IBM Plex Mono",monospace;font-size:14px;line-height:1.75;margin:0}
+pre .c{color:var(--muted)}
+pre .p{color:var(--accent-ink)}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.step{display:flex;flex-direction:column}
+.step pre{flex:1}
+.step .n{font-family:"IBM Plex Mono",monospace;font-size:12.5px;color:var(--muted);letter-spacing:.08em;margin-bottom:10px}
+.step h3{font-size:19px;margin-bottom:10px}
+.step p{color:var(--muted);font-size:15px;margin:12px 0 0}
+
+/* ---------------------------------------------------------------- checks */
+.checks{columns:3;column-gap:34px;font-size:15.5px}
+.checks div{break-inside:avoid;padding:7px 0;border-bottom:1px solid var(--line);display:flex;gap:9px;align-items:baseline}
+.checks .chip{flex:0 0 auto}
+
+/* ------------------------------------------------------------------- faq */
+.faq details{border-bottom:1px solid var(--line);padding:16px 0}
+.faq summary{cursor:pointer;font-weight:600;font-size:17.5px;list-style:none;display:flex;gap:12px;align-items:baseline}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::before{content:"+";font-family:"IBM Plex Mono",monospace;color:var(--accent);font-weight:600}
+.faq details[open] summary::before{content:"−"}
+.faq p{color:var(--muted);margin:12px 0 0 24px;max-width:70ch}
+
+/* ------------------------------------------------------------------- cta */
+.cta{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  padding:46px;text-align:center;box-shadow:var(--shadow)}
+.cta h2{font-size:31px}
+.cta p{color:var(--muted);max-width:52ch;margin:14px auto 26px}
+.cta .actions{justify-content:center}
+
+footer{border-top:1px solid var(--line);padding:34px 0 60px;font-size:14px;color:var(--muted)}
+footer .wrap{display:flex;gap:20px;flex-wrap:wrap;justify-content:space-between}
+footer a{color:var(--muted)}
+.legal{font-size:12.5px;max-width:62ch;line-height:1.55}
+
+@media (max-width:880px){
+  .q{grid-template-columns:1fr;gap:22px;padding:34px 0}
+  .q figure{margin-top:6px}
+  .strip{grid-template-columns:repeat(2,1fr)}
+  .steps{grid-template-columns:1fr}
+  .checks{columns:1}
+  .top nav a:not(.btn){display:none}
+  .cta{padding:32px 22px}
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#"><span class="dot"></span>Web&#8288;Engine</a>
+    <nav>
+      <a href="#questions">Ce qu'il trouve</a>
+      <a href="#demarrer">Démarrer</a>
+      <a href="#controles">Contrôles</a>
+      <a href="#faq">FAQ</a>
+      <a class="btn sm" href="https://github.com/webenginefree/webengine-crawler">Code sur GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<section class="hero">
+  <div class="wrap">
+    <div class="eyebrow">
+      <span class="chip c200">GRATUIT</span>
+      <span class="chip c301">OPEN SOURCE · MIT</span>
+      <span class="chip cwarn">100 % LOCAL</span>
+    </div>
+    <h1>Le crawler SEO qui vous dit <em>d'où viennent</em> vos 404.</h1>
+    <p class="lede">WebEngine Crawler audite votre site depuis votre machine : <strong>H1 en double</strong>,
+      <strong>erreurs 404 avec la liste des pages qui pointent dessus</strong>, et croisement direct
+      de votre <strong>export Search Console</strong>. Sans limite de 500 URL, sans compte, sans envoi de données.</p>
+    <div class="actions">
+      <a class="btn" href="https://github.com/webenginefree/webengine-crawler">Télécharger sur GitHub</a>
+      <a class="btn ghost" href="#demarrer">Voir comment ça marche</a>
+      <span class="note">Python 3 · Linux, macOS, Windows</span>
+    </div>
+    <div class="strip">
+      <div><div class="v">0 €</div><div class="k">et aucune limite d'URL</div></div>
+      <div><div class="v">35+</div><div class="k">contrôles techniques</div></div>
+      <div><div class="v">1</div><div class="k">fichier HTML autonome</div></div>
+      <div><div class="v">8</div><div class="k">exports CSV pour Excel</div></div>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<section id="questions">
+  <div class="wrap">
+    <div class="head">
+      <div class="kicker">Trois questions, trois réponses</div>
+      <h2>Un audit ne sert à rien s'il ne dit pas quoi corriger.</h2>
+      <p>La plupart des outils listent les problèmes. WebEngine Crawler remonte aussi la cause :
+        la page exacte qui contient le lien cassé, et l'ancre utilisée.</p>
+    </div>
+
+    <div class="qs">
+    <div class="q">
+      <div class="txt">
+        <span class="chip c404">404</span>
+        <h3 style="margin-top:12px">Vos 404, et les pages à modifier</h3>
+        <p>Chaque URL en erreur arrive avec son nombre de liens entrants et les pages sources.
+          Vous ne cherchez plus d'où vient le lien : il est dans le tableau.</p>
+      </div>
+        <ul>
+          <li><b>Page source et ancre</b> pour chaque lien cassé</li>
+          <li>Chaînes et boucles de <b>redirection</b></li>
+          <li>Pages qui <b>lient vers une redirection</b> au lieu de la cible</li>
+          <li>Erreurs 5xx, timeouts et liens sortants morts</li>
+        </ul>
+      <figure>
+        <div class="shot"><img src="img/05-404.jpg" width="1535" height="413" loading="lazy"
+          alt="Tableau des erreurs 404 avec, pour chaque URL cassée, le nombre de liens entrants et les pages qui pointent dessus"></div>
+        <figcaption>Vue « 404 &amp; erreurs » : 39 pages pointent encore vers un produit retiré.</figcaption>
+      </figure>
+    </div>
+
+    <div class="q">
+      <div class="txt">
+        <span class="chip cwarn">H1 × 2</span>
+        <h3 style="margin-top:12px">Les H1 en double, regroupés</h3>
+        <p>Deux pages avec le même H1 se cannibalisent. WebEngine Crawler les regroupe par valeur :
+          vous voyez immédiatement les gabarits qui se répètent et les paginations mal gérées.</p>
+      </div>
+        <ul>
+          <li>H1 <b>dupliqué</b>, manquant, vide, multiple ou trop long</li>
+          <li>Mêmes contrôles sur les <b>title</b> et les <b>meta descriptions</b></li>
+          <li><b>Contenus strictement identiques</b> détectés par empreinte du texte</li>
+        </ul>
+      <figure>
+        <div class="shot"><img src="img/04-h1-doubles.jpg" width="1535" height="601" loading="lazy"
+          alt="Groupes de H1 dupliqués : quatre pages partagent le H1 chaussures de running"></div>
+        <figcaption>Cinq groupes de H1 dupliqués, dont la pagination qui répète le H1 de la catégorie.</figcaption>
+      </figure>
+    </div>
+
+    <div class="q">
+      <div class="txt">
+        <span class="chip c301">SEARCH CONSOLE</span>
+        <h3 style="margin-top:12px">D'où vient cette URL que Google connaît&nbsp;?</h3>
+        <p>Déposez votre export Search Console : chaque URL est croisée avec le crawl.
+          Statut réel, indexabilité, et surtout <b>provenance</b> — combien de liens internes,
+          quel sitemap, quelle redirection… ou rien du tout.</p>
+      </div>
+        <ul>
+          <li>URL qui rapportent des clics et renvoient une <b>404</b></li>
+          <li>Pages <b>orphelines</b> : Google les connaît, aucun lien interne n'y mène</li>
+          <li>URL <b>redirigées</b> ou <b>noindex</b> encore positionnées</li>
+          <li>Total des <b>clics perdus</b> sur les URL à problème</li>
+        </ul>
+      <figure>
+        <div class="shot"><img src="img/02-search-console.jpg" width="1535" height="558" loading="lazy"
+          alt="Croisement Search Console : diagnostic et provenance de chaque URL, avec le nombre de liens entrants"></div>
+        <figcaption>Sept URL à problème sur 21 importées, triées par clics perdus.</figcaption>
+      </figure>
+    </div>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<section>
+  <div class="wrap">
+    <div class="head">
+      <div class="kicker">Le détail d'une URL</div>
+      <h2>Un clic sur n'importe quelle ligne ouvre sa fiche complète.</h2>
+      <p>Title, H1, H2, canonical, robots, poids, temps de réponse — et la liste intégrale de ses
+        liens entrants avec les ancres, navigable de page en page.</p>
+    </div>
+    <div class="wide"><img src="img/03-liens-entrants.jpg" width="1535" height="820" loading="lazy"
+      alt="Fiche détaillée d'une URL en 404 avec ses 39 liens entrants, page source et ancre"></div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<section id="demarrer">
+  <div class="wrap">
+    <div class="head">
+      <div class="kicker">Démarrer</div>
+      <h2>Trois commandes, et le rapport s'ouvre.</h2>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="n">01 · INSTALLER</div>
+        <h3>Une seule dépendance</h3>
+        <pre><span class="c"># Python 3.8+</span>
+git clone https://github.com/<span class="p">webenginefree</span>/webengine-crawler
+cd webengine-crawler
+pip install -r requirements.txt</pre>
+        <p>Aucun compte, aucune licence, aucune clé d'API.</p>
+      </div>
+      <div class="step">
+        <div class="n">02 · CRAWLER</div>
+        <h3>En ligne de commande…</h3>
+        <pre>./webengine.sh crawl https://monsite.fr \
+  -n 5000 --delay 0.2 \
+  <span class="p">--gsc</span> ~/Pages.csv \
+  <span class="p">--csv</span> ./exports</pre>
+        <p>Le rapport HTML s'ouvre tout seul à la fin du crawl.</p>
+      </div>
+      <div class="step">
+        <div class="n">03 · OU EN LOCAL</div>
+        <h3>…ou dans le navigateur</h3>
+        <pre>./webengine.sh serve
+<span class="c"># http://127.0.0.1:5005</span></pre>
+        <p>Vous collez l'URL, vous déposez l'export Search Console, vous cliquez.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<section id="controles">
+  <div class="wrap">
+    <div class="head">
+      <div class="kicker">Contrôles</div>
+      <h2>Ce que WebEngine Crawler vérifie sur chaque page.</h2>
+      <p>Chaque problème est classé par gravité et exportable en CSV.</p>
+    </div>
+    <div class="checks">
+      <div><span class="chip c404">404</span> Pages en erreur 4xx</div>
+      <div><span class="chip c404">5xx</span> Erreurs serveur et timeouts</div>
+      <div><span class="chip c404">↺</span> Boucles de redirection</div>
+      <div><span class="chip c301">301</span> Chaînes de redirection</div>
+      <div><span class="chip c301">→</span> Liens internes vers une redirection</div>
+      <div><span class="chip cwarn">H1</span> H1 manquant, vide ou multiple</div>
+      <div><span class="chip cwarn">H1</span> H1 dupliqué entre pages</div>
+      <div><span class="chip cwarn">T</span> Title manquant, dupliqué, trop long</div>
+      <div><span class="chip cwarn">D</span> Meta description absente ou dupliquée</div>
+      <div><span class="chip cwarn">≡</span> Contenu strictement identique</div>
+      <div><span class="chip cwarn">✎</span> Contenu pauvre (moins de 200 mots)</div>
+      <div><span class="chip c301">⌀</span> Canonical absente ou vers une URL non 200</div>
+      <div><span class="chip c301">×</span> Pages en noindex</div>
+      <div><span class="chip c301">◷</span> Pages lentes à répondre</div>
+      <div><span class="chip c301">↓</span> Pages à plus de 4 clics de l'accueil</div>
+      <div><span class="chip c404">∅</span> Pages sans aucun lien entrant</div>
+      <div><span class="chip c200">☰</span> URL du sitemap qui ne renvoient pas 200</div>
+      <div><span class="chip c200">alt</span> Images sans attribut alt</div>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<section>
+  <div class="wrap">
+    <div class="head">
+      <div class="kicker">Le rapport</div>
+      <h2>Un seul fichier HTML, à ouvrir ou à envoyer au client.</h2>
+      <p>Aucune connexion, aucun CDN, aucun tracker : tout est embarqué dans le fichier.
+        Tri, filtre et export CSV sur chaque tableau.</p>
+    </div>
+    <div class="wide"><img src="img/01-vue-ensemble.jpg" width="1400" height="1205" loading="lazy"
+      alt="Vue d'ensemble du rapport WebEngine Crawler avec les compteurs d'URL, d'erreurs et de doublons"></div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<section id="faq" class="faq">
+  <div class="wrap">
+    <div class="head">
+      <div class="kicker">Questions fréquentes</div>
+      <h2>Ce qu'on me demande le plus souvent.</h2>
+    </div>
+    <details open>
+      <summary>C'est vraiment gratuit&nbsp;?</summary>
+      <p>Oui : code sous licence MIT, aucune version payante, aucune limite d'URL. Le seul plafond est
+        celui que vous fixez avec l'option <span class="mono">-n</span>, pour ne pas laisser tourner un crawl trop longtemps.</p>
+    </details>
+    <details>
+      <summary>En quoi c'est différent de Screaming Frog&nbsp;?</summary>
+      <p>Screaming Frog est un logiciel bien plus complet — rendu JavaScript, connexion aux API, analyse de logs,
+        comparaison de crawls. WebEngine Crawler couvre le cœur du besoin quotidien (structure, statuts, doublons,
+        maillage interne, croisement Search Console) sans la limite de 500 URL de la version gratuite,
+        et produit un rapport partageable en un fichier. Si vous auditez des sites toute la journée,
+        la licence Screaming Frog reste un excellent investissement.</p>
+    </details>
+    <details>
+      <summary>Où passent mes données&nbsp;?</summary>
+      <p>Nulle part. Le crawl tourne sur votre machine, l'export Search Console est lu en local et le rapport
+        est un fichier sur votre disque. Aucun serveur tiers n'est contacté, y compris à l'affichage du rapport.</p>
+    </details>
+    <details>
+      <summary>Ça tourne sur Windows&nbsp;?</summary>
+      <p>Oui, partout où Python 3.8+ est installé (Windows, macOS, Linux). Sous Windows, remplacez
+        <span class="mono">./webengine.sh</span> par <span class="mono">python -m webengine</span>.</p>
+    </details>
+    <details>
+      <summary>Comment récupérer mon export Search Console&nbsp;?</summary>
+      <p>Search Console → <em>Résultats de recherche</em> → onglet <em>Pages</em> → bouton <em>Exporter</em>
+        (CSV ou ZIP). Passez le fichier à l'option <span class="mono">--gsc</span> ou déposez-le dans
+        l'interface web : les exports français et anglais sont reconnus automatiquement.</p>
+    </details>
+    <details>
+      <summary>Est-ce que ça risque de surcharger mon serveur&nbsp;?</summary>
+      <p>Le <span class="mono">robots.txt</span> est respecté par défaut. Sur un site de production,
+        <span class="mono">-t 5 --delay 0.2</span> reste très raisonnable. Vous pouvez aussi limiter le crawl
+        à une section avec <span class="mono">--include</span>.</p>
+    </details>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="cta">
+      <h2>Auditez votre site dans cinq minutes.</h2>
+      <p>Clonez le dépôt, lancez une commande, ouvrez le rapport. Si l'outil vous sert,
+        une étoile sur GitHub aide les autres à le trouver.</p>
+      <div class="actions">
+        <a class="btn" href="https://github.com/webenginefree/webengine-crawler">Voir le code sur GitHub</a>
+        <a class="btn ghost" href="mailto:vous@votre-site.fr">Me signaler un bug</a>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <strong>WebEngine Crawler</strong> — crawler SEO libre, écrit par
+      <a href="https://votre-site.fr">votre nom</a>. Licence MIT.
+      <div class="legal" style="margin-top:10px">
+        Screaming Frog est une marque déposée de Screaming Frog Ltd. WebEngine Crawler n'est ni affilié,
+        ni approuvé, ni sponsorisé par Screaming Frog Ltd. Les captures présentent un site de démonstration.
+      </div>
+    </div>
+    <div><a href="https://github.com/webenginefree/webengine-crawler">GitHub</a></div>
+  </div>
+</footer>
+
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication",
+"name":"WebEngine Crawler","applicationCategory":"DeveloperApplication","operatingSystem":"Linux, macOS, Windows",
+"description":"Crawler SEO gratuit et open source : H1 en double, erreurs 404 avec leurs liens entrants, croisement de l'export Search Console.",
+"url":"https://votre-site.fr/webengine-crawler","license":"https://opensource.org/licenses/MIT",
+"offers":{"@type":"Offer","price":"0","priceCurrency":"EUR"}}
+</script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+[project]
+name = "webengine-crawler"
+version = "1.0.0"
+description = "Crawler SEO local et gratuit : H1 en double, 404, liens entrants, croisement Search Console."
+requires-python = ">=3.8"
+dependencies = ["requests>=2.28", "beautifulsoup4>=4.11", "lxml>=4.9", "flask>=2.2"]
+
+[project.scripts]
+webengine = "webengine.cli:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["webengine"]
+
+[tool.setuptools.package-data]
+webengine = ["report_template.html"]
