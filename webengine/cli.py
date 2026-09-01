@@ -118,6 +118,22 @@ def cmd_gsc(args):
     return 0
 
 
+def cmd_hashpass(args):
+    """Genere le hash a mettre dans WEBENGINE_PASSWORD_HASH."""
+    import getpass
+    import secrets as _secrets
+    from werkzeug.security import generate_password_hash
+    pwd = args.password
+    if not pwd:
+        pwd = getpass.getpass("Mot de passe (vide = en generer un) : ")
+    if not pwd:
+        alpha = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+        pwd = "".join(_secrets.choice(alpha) for _ in range(20))
+        print("Mot de passe genere : %s" % pwd)
+    print("WEBENGINE_PASSWORD_HASH='%s'" % generate_password_hash(pwd))
+    return 0
+
+
 def cmd_serve(args):
     from .web import run
     run(host=args.host, port=args.port, open_browser=not args.no_open)
@@ -186,6 +202,10 @@ def build_parser():
     g.add_argument("--no-check-gsc", action="store_true")
     g.add_argument("--no-open", action="store_true")
     g.set_defaults(func=cmd_gsc)
+
+    hp = sub.add_parser("hashpass", help="generer le hash d'un mot de passe pour l'interface web")
+    hp.add_argument("password", nargs="?", help="mot de passe (sinon demande, ou genere)")
+    hp.set_defaults(func=cmd_hashpass)
 
     s = sub.add_parser("serve", help="lancer l'interface web locale")
     s.add_argument("-p", "--port", type=int, default=5005)

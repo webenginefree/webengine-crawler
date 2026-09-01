@@ -3,21 +3,80 @@
 from __future__ import annotations
 
 import os
+import secrets
 import threading
 import time
 import traceback
 import uuid
 import webbrowser
+from functools import wraps
 
-from flask import Flask, jsonify, request, send_file, Response
+from flask import (Flask, jsonify, redirect, request, send_file, session,
+                   url_for, Response)
+from werkzeug.middleware.proxy_fix import ProxyFix
+from werkzeug.security import check_password_hash
 
 from . import __version__
 from .crawler import Crawler, DEFAULT_UA
 from .report import build_data, export_csv, render_html
 
 OUT = os.path.abspath(os.environ.get("WEBENGINE_OUT", "webengine-rapports"))
+MAX_PAGES = int(os.environ.get("WEBENGINE_MAX_PAGES", "5000"))
 JOBS = {}
+
 app = Flask(__name__)
+# Derriere un reverse proxy (Apache/Nginx) : recupere IP, schema et hote reels.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+app.secret_key = os.environ.get("WEBENGINE_SECRET") or secrets.token_hex(32)
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=os.environ.get("WEBENGINE_HTTPS", "") == "1",
+    PERMANENT_SESSION_LIFETIME=int(os.environ.get("WEBENGINE_SESSION_HOURS", "12")) * 3600,
+)
+
+# Authentification : activee seulement si les deux variables sont definies.
+# En local (aucune variable), l'interface reste ouverte comme avant.
+AUTH_USER = os.environ.get("WEBENGINE_USER", "")
+AUTH_HASH = os.environ.get("WEBENGINE_PASSWORD_HASH", "")
+AUTH_ON = bool(AUTH_USER and AUTH_HASH)
+
+_ATTEMPTS = {}          # ip -> [nb_echecs, premier_echec_ts]
+_LOCK = threading.Lock()
+MAX_TRIES, WINDOW, BAN = 8, 600, 900
+
+
+def _client_ip():
+    return request.remote_addr or "?"
+
+
+def _blocked(ip):
+    with _LOCK:
+        rec = _ATTEMPTS.get(ip)
+        if not rec:
+            return 0
+        fails, first = rec
+        if time.time() - first > (BAN if fails >= MAX_TRIES else WINDOW):
+            _ATTEMPTS.pop(ip, None)
+            return 0
+        return max(0, int(first + BAN - time.time())) if fails >= MAX_TRIES else 0
+
+
+def _note_failure(ip):
+    with _LOCK:
+        fails, first = _ATTEMPTS.get(ip, [0, time.time()])
+        _ATTEMPTS[ip] = [fails + 1, first]
+
+
+def login_required(fn):
+    @wraps(fn)
+    def wrapper(*a, **kw):
+        if AUTH_ON and not session.get("user"):
+            if request.path.startswith("/api/"):
+                return jsonify(error="Session expiree, reconnectez-vous."), 401
+            return redirect(url_for("login", next=request.path))
+        return fn(*a, **kw)
+    return wrapper
 
 PAGE = """<!doctype html><html lang="fr"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>WebEngine Crawler</title>
@@ -59,7 +118,7 @@ a{color:var(--accent)}small{color:var(--muted)}
   <div class="log" id="plog"></div>
 </div>
 <div class="card"><b>Rapports precedents</b><div id="hist"><small>chargement…</small></div></div>
-<small>WebEngine Crawler __V__ — tout reste sur votre machine.</small>
+<small>WebEngine Crawler __V__ — tout reste sur votre machine.__LOGOUT__</small>
 </div><script>
 const f=document.getElementById('f');
 f.onsubmit=async e=>{e.preventDefault();document.getElementById('go').disabled=true;
@@ -81,12 +140,78 @@ hist();
 </script></body></html>"""
 
 
+LOGIN_PAGE = """<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Connexion — WebEngine Crawler</title>
+<style>
+:root{--bg:#f6f7f9;--panel:#fff;--ink:#12161c;--muted:#66707d;--line:#e2e6ec;--accent:#2f7d4f;--err:#c0362c}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1216;--panel:#161b22;--ink:#e6edf3;--muted:#8b97a6;
+--line:#242c36;--accent:#4ea87a;--err:#ff7b6b}}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:var(--bg);color:var(--ink);
+font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+display:flex;align-items:center;justify-content:center;padding:24px}
+form{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:28px;width:100%;max-width:380px}
+h1{font-size:19px;margin:0 0 4px}p.s{color:var(--muted);margin:0 0 20px;font-size:13.5px}
+label{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:14px 0 5px}
+input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);
+color:var(--ink);font:inherit}
+button{margin-top:20px;width:100%;padding:11px;border:0;border-radius:9px;background:var(--accent);
+color:#fff;font:600 15px inherit;cursor:pointer}
+.err{background:color-mix(in srgb, var(--err) 12%, transparent);color:var(--err);border-radius:8px;
+padding:9px 12px;font-size:13.5px;margin-top:16px}
+</style></head><body>
+<form method="post" autocomplete="on">
+  <h1>⚙️ WebEngine Crawler</h1>
+  <p class="s">Accès réservé.</p>
+  <label for="u">Identifiant</label>
+  <input id="u" name="username" autocomplete="username" autofocus required>
+  <label for="p">Mot de passe</label>
+  <input id="p" name="password" type="password" autocomplete="current-password" required>
+  <button type="submit">Se connecter</button>
+  __ERR__
+</form></body></html>"""
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if not AUTH_ON:
+        return redirect(url_for("index"))
+    err = ""
+    if request.method == "POST":
+        wait = _blocked(_client_ip())
+        if wait:
+            err = "Trop de tentatives. Reessayez dans %d minute(s)." % max(1, wait // 60)
+        else:
+            user = (request.form.get("username") or "").strip()
+            pwd = request.form.get("password") or ""
+            if secrets.compare_digest(user, AUTH_USER) and check_password_hash(AUTH_HASH, pwd):
+                session.permanent = True
+                session["user"] = user
+                nxt = request.args.get("next", "")
+                return redirect(nxt if nxt.startswith("/") and not nxt.startswith("//") else url_for("index"))
+            _note_failure(_client_ip())
+            time.sleep(0.6)
+            err = "Identifiant ou mot de passe incorrect."
+    body = '<div class="err">%s</div>' % err if err else ""
+    return Response(LOGIN_PAGE.replace("__ERR__", body), mimetype="text/html",
+                    status=401 if err else 200)
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login") if AUTH_ON else url_for("index"))
+
+
 @app.route("/")
+@login_required
 def index():
-    return Response(PAGE.replace("__V__", __version__), mimetype="text/html")
+    out = PAGE.replace("__V__", __version__)
+    out = out.replace("__LOGOUT__", ' · <a href="/logout">Deconnexion</a>' if AUTH_ON else "")
+    return Response(out, mimetype="text/html")
 
 
 @app.route("/api/crawl", methods=["POST"])
+@login_required
 def api_crawl():
     url = (request.form.get("url") or "").strip()
     if not url:
@@ -103,7 +228,7 @@ def api_crawl():
         up.save(gsc_path)
 
     opts = {
-        "max_pages": int(request.form.get("max_pages") or 500),
+        "max_pages": max(1, min(MAX_PAGES, int(request.form.get("max_pages") or 500))),
         "threads": int(request.form.get("threads") or 8),
         "max_depth": int(request.form.get("max_depth") or 15),
         "exclude_re": (request.form.get("exclude") or "").strip() or None,
@@ -141,11 +266,13 @@ def _run_job(jid, url, opts, gsc_path):
 
 
 @app.route("/api/status/<jid>")
+@login_required
 def api_status(jid):
     return jsonify(JOBS.get(jid, {"state": "error", "pct": 0, "message": "Job inconnu"}))
 
 
 @app.route("/rapport/<jid>")
+@login_required
 def rapport(jid):
     job = JOBS.get(jid)
     if not job or not job.get("file"):
@@ -154,6 +281,7 @@ def rapport(jid):
 
 
 @app.route("/api/rapports")
+@login_required
 def api_rapports():
     if not os.path.isdir(OUT):
         return jsonify([])
@@ -164,6 +292,7 @@ def api_rapports():
 
 
 @app.route("/fichier/<path:name>")
+@login_required
 def fichier(name):
     p = os.path.join(OUT, os.path.basename(name))
     if not os.path.isfile(p):
