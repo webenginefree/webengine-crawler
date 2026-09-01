@@ -138,6 +138,8 @@ maillage interne, Search Console.
 ## Documentation
 
 La documentation complète est dans [docs/DOCUMENTATION.md](docs/DOCUMENTATION.md).
+Pour héberger l'interface web derrière un reverse proxy avec authentification :
+[docs/DEPLOIEMENT.md](docs/DEPLOIEMENT.md).
 
 ## Contribuer
 
