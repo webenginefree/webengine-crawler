@@ -36,20 +36,27 @@ sudo chown webengine:webengine /var/lib/webengine-crawler
 Le code reste la propriété de l'administrateur (mise à jour par `git pull`), le service n'a
 d'accès en écriture que sur le dossier des rapports.
 
-## 3. Identifiants
+## 3. Comptes
 
-Le mot de passe n'est jamais stocké en clair, seulement son empreinte :
+Les comptes vivent dans SQLite (`$WEBENGINE_OUT/webengine.db`), pas dans la configuration.
+Au premier démarrage, si aucun compte n'existe, l'interface propose la création du compte
+administrateur. En ligne de commande :
 
 ```bash
 cd /opt/webengine-crawler
-./.venv/bin/python -m webengine hashpass          # demande ou génère un mot de passe
+sudo -u webengine ./.venv/bin/python -m webengine users add patron --admin
+sudo -u webengine ./.venv/bin/python -m webengine users list
+sudo -u webengine ./.venv/bin/python -m webengine users passwd patron
 ```
 
-Puis `/etc/webengine-crawler.env` (droits `640`, `root:webengine`) :
+L'administrateur crée ensuite les autres comptes depuis l'onglet **Comptes**, avec pour chacun
+son quota d'URL par crawl et son nombre de crawls simultanés. Chaque compte ne voit que ses
+propres rapports ; un administrateur voit tout.
+
+`/etc/webengine-crawler.env` (droits `640`, `root:webengine`) :
 
 ```ini
-WEBENGINE_USER=webengine
-WEBENGINE_PASSWORD_HASH=scrypt:32768:8:1$...
+WEBENGINE_AUTH=1
 WEBENGINE_SECRET=<64 caractères hexadécimaux aléatoires>
 WEBENGINE_OUT=/var/lib/webengine-crawler
 WEBENGINE_MAX_PAGES=5000
@@ -59,16 +66,22 @@ WEBENGINE_HTTPS=1
 
 | Variable | Rôle |
 |---|---|
-| `WEBENGINE_USER` + `WEBENGINE_PASSWORD_HASH` | activent l'authentification. Absentes, l'interface est ouverte (usage local) |
+| `WEBENGINE_AUTH=1` | impose la connexion même avant la création du premier compte |
 | `WEBENGINE_SECRET` | signature des cookies de session. En changer déconnecte tout le monde |
 | `WEBENGINE_HTTPS=1` | marque le cookie de session `Secure` (à ne mettre qu'avec HTTPS) |
-| `WEBENGINE_MAX_PAGES` | plafond serveur du nombre d'URL par crawl |
+| `WEBENGINE_MAX_PAGES` | plafond serveur, au-dessus des quotas par compte |
+| `WEBENGINE_MAX_GLOBAL` | nombre de crawls simultanés, tous comptes confondus |
+| `WEBENGINE_JOB_MEM_MB` | plafond mémoire de chaque process de crawl (défaut 1024) |
 
 ## 4. Service systemd
 
-`/etc/systemd/system/webengine-crawler.service` : gunicorn en **un seul worker** avec 8 threads.
-C'est volontaire — l'état des crawls en cours vit en mémoire du process ; plusieurs workers
-renverraient une progression incohérente.
+`/etc/systemd/system/webengine-crawler.service` : gunicorn sert l'interface, et **chaque crawl
+s'exécute dans un process séparé** (`python -m webengine.runner <job>`), plafonné en mémoire
+et déprioritisé. Un crawl qui plante ou sature la RAM n'affecte ni l'interface ni les autres
+comptes, et le bouton « Annuler » tue réellement le process.
+
+L'état partagé (comptes, jobs, avancement) est en SQLite : l'interface peut donc tourner sur
+plusieurs workers, et un redémarrage ne perd que les crawls en cours, marqués comme interrompus.
 
 ```bash
 sudo systemctl enable --now webengine-crawler
@@ -114,7 +127,11 @@ sudo systemctl restart webengine-crawler
 - **Pas de protection SSRF.** L'outil accepte n'importe quelle URL, adresses privées comprises —
   c'est voulu pour auditer des préproductions internes. Ne jamais exposer l'interface sans
   authentification : ce serait un relais vers le réseau interne du serveur.
-- **File d'attente en mémoire.** Un redémarrage du service perd les crawls en cours ; les rapports
-  déjà écrits sur disque, eux, sont conservés.
+- **Crawls en cours et redémarrage.** systemd tue les process de crawl avec le service ; ils sont
+  marqués « interrompus » au démarrage suivant. Les rapports déjà écrits sont conservés.
+- **Cloisonnement.** Les comptes sont isolés au niveau des données (un dossier de rapports par
+  compte, contrôle du propriétaire à chaque téléchargement) et des ressources (process séparé,
+  quotas par compte). Ce n'est pas une isolation système : tous les crawls tournent sous le même
+  utilisateur Unix. Pour aller plus loin il faudrait un conteneur par compte.
 - **Rétention.** Rien n'est purgé automatiquement. Pour ne garder que 30 jours :
   `find /var/lib/webengine-crawler -mtime +30 -delete` dans une tâche cron.

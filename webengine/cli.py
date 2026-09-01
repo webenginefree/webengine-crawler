@@ -134,6 +134,77 @@ def cmd_hashpass(args):
     return 0
 
 
+def cmd_users(args):
+    """Gestion des comptes en ligne de commande (bootstrap, depannage)."""
+    import getpass
+    import secrets as _secrets
+    import time as _time
+    from . import db
+    db.init()
+    action = args.action
+
+    def _gen():
+        alpha = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+        return "".join(_secrets.choice(alpha) for _ in range(16))
+
+    if action == "list":
+        users = db.list_users()
+        if not users:
+            print("Aucun compte. Le premier demarrage de l'interface web en proposera la creation.")
+            return 0
+        print("%-20s %-8s %-10s %8s %6s %8s  %s" % ("COMPTE", "ROLE", "ETAT", "URL/CRAWL",
+                                                    "PARAL", "CRAWLS", "DERNIERE CONNEXION"))
+        for u in users:
+            last = (_time.strftime("%d/%m/%Y %H:%M", _time.localtime(u["last_login"]))
+                    if u["last_login"] else "jamais")
+            print("%-20s %-8s %-10s %8d %6d %8d  %s" % (
+                u["username"], u["role"], "actif" if u["active"] else "desactive",
+                u["max_pages"], u["max_parallel"], u["jobs_count"], last))
+        return 0
+
+    if not args.username:
+        print("Nom d'utilisateur requis.")
+        return 1
+
+    if action == "add":
+        pwd = args.password or getpass.getpass("Mot de passe (vide = genere) : ") or _gen()
+        try:
+            db.create_user(args.username, pwd, role="admin" if args.admin else "user",
+                           max_pages=args.max_pages, max_parallel=args.parallel)
+        except ValueError as exc:
+            print("Erreur : %s" % exc)
+            return 1
+        print("Compte « %s » cree (%s)." % (args.username, "admin" if args.admin else "utilisateur"))
+        print("Mot de passe : %s" % pwd)
+        return 0
+
+    u = db.get_user(username=args.username)
+    if not u:
+        print("Compte introuvable : %s" % args.username)
+        return 1
+
+    if action == "passwd":
+        pwd = args.password or getpass.getpass("Nouveau mot de passe (vide = genere) : ") or _gen()
+        db.set_password(u["id"], pwd)
+        print("Mot de passe de « %s » modifie : %s" % (args.username, pwd))
+    elif action in ("enable", "disable"):
+        if action == "disable" and u["role"] == "admin" and db.count_admins() <= 1:
+            print("Refus : c'est le dernier administrateur actif.")
+            return 1
+        db.update_user(u["id"], active=1 if action == "enable" else 0)
+        print("Compte « %s » %s." % (args.username, "active" if action == "enable" else "desactive"))
+    elif action == "delete":
+        if u["role"] == "admin" and db.count_admins() <= 1:
+            print("Refus : c'est le dernier administrateur actif.")
+            return 1
+        db.delete_user(u["id"])
+        print("Compte « %s » supprime." % args.username)
+    elif action == "admin":
+        db.update_user(u["id"], role="admin")
+        print("« %s » est desormais administrateur." % args.username)
+    return 0
+
+
 def cmd_serve(args):
     from .web import run
     run(host=args.host, port=args.port, open_browser=not args.no_open)
@@ -202,6 +273,16 @@ def build_parser():
     g.add_argument("--no-check-gsc", action="store_true")
     g.add_argument("--no-open", action="store_true")
     g.set_defaults(func=cmd_gsc)
+
+    us = sub.add_parser("users", help="gerer les comptes de l'interface web")
+    us.add_argument("action", choices=["list", "add", "passwd", "enable", "disable",
+                                       "delete", "admin"])
+    us.add_argument("username", nargs="?")
+    us.add_argument("--password", help="sinon demande, ou genere")
+    us.add_argument("--admin", action="store_true", help="creer un administrateur")
+    us.add_argument("--max-pages", type=int, default=1000, dest="max_pages")
+    us.add_argument("--parallel", type=int, default=1, help="crawls simultanes autorises")
+    us.set_defaults(func=cmd_users)
 
     hp = sub.add_parser("hashpass", help="generer le hash d'un mot de passe pour l'interface web")
     hp.add_argument("password", nargs="?", help="mot de passe (sinon demande, ou genere)")
