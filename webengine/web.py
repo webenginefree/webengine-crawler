@@ -21,6 +21,7 @@ from functools import wraps
 from flask import (Flask, abort, flash, get_flashed_messages, jsonify, redirect,
                    render_template_string, request, send_file, session, url_for)
 from werkzeug.middleware.proxy_fix import ProxyFix
+from werkzeug.utils import secure_filename
 
 from . import __version__, db
 
@@ -171,10 +172,10 @@ BASE = """<!doctype html><html lang="fr"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>{{ title }}</title>
 <style>
 :root{--bg:#f6f7f9;--panel:#fff;--ink:#12161c;--muted:#66707d;--line:#e2e6ec;--accent:#2f7d4f;
---accent-soft:#e8f4ec;--err:#c0362c;--err-soft:#fbeae8;--warn:#976409;--warn-soft:#fbf3e4}
+--accent-soft:#e8f4ec;--err:#c0362c;--err-soft:#fbeae8;--warn:#976409;--warn-soft:#fbf3e4;--serie:#976409;--serie-soft:#9764091f}
 @media(prefers-color-scheme:dark){:root{--bg:#0f1216;--panel:#161b22;--ink:#e6edf3;--muted:#8b97a6;
 --line:#242c36;--accent:#4ea87a;--accent-soft:#16261e;--err:#ff7b6b;--err-soft:#2a1614;
---warn:#dda63f;--warn-soft:#291f0e}}
+--warn:#dda63f;--warn-soft:#291f0e;--serie:#b8862f;--serie-soft:#b8862f2e}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);
 font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif}
 a{color:var(--accent)}
@@ -221,6 +222,7 @@ tr:last-child td{border-bottom:0}
   <span class="b">⚙️ WebEngine Crawler</span>
   <nav>
     <a href="{{ url_for('index') }}">Crawler</a>
+    <a href="{{ url_for('indexation') }}">Indexation</a>
     {% if user.role == 'admin' and auth %}<a href="{{ url_for('admin') }}">Comptes</a>{% endif %}
     {% if auth %}<span class="who">{{ user.username }}
       {% if user.role == 'admin' %}<span class="tag">admin</span>{% endif %}</span>{% endif %}
@@ -389,6 +391,220 @@ ADMIN_BODY = """
 </tr>
 {% endfor %}
 </tbody></table></div></div>"""
+
+
+IDX_BODY = """
+<h1>Suivi d'indexation</h1>
+<p class="sub">Deposez l'export <b>Search Console &rsaquo; Indexation &rsaquo; Pages</b>.
+  L'export contient la courbe des 90 derniers jours : la hausse est detectee des le premier import.</p>
+
+<div class="card">
+  <form method="post" enctype="multipart/form-data">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <div class="row">
+      <div style="flex:2"><label>Export (.zip ou .csv)</label>
+        <input type="file" name="export" accept=".zip,.csv,.tsv" required></div>
+      <div><label>Site (pour l'historique)</label>
+        <input name="site" placeholder="exemple.fr" value="{{ dernier_site }}"></div>
+    </div>
+    <button type="submit">Analyser</button>
+  </form>
+  <p style="margin:14px 0 0"><small>Dans la Search Console : <b>Indexation &rsaquo; Pages</b>,
+    bouton <b>Exporter</b> en haut a droite. Pour la liste des URL d'un motif, ouvrez le motif
+    puis exportez : le croisement avec votre dernier crawl devient possible.</small></p>
+</div>
+
+{% if historique %}
+<h2>Imports precedents</h2>
+<div class="card" style="padding:6px 8px"><div class="wrap"><table>
+<thead><tr><th>Site</th><th>Etat au</th><th>Indexees</th><th>Non indexees</th>
+<th>Alertes</th><th>Importe</th></tr></thead><tbody>
+{% for h in historique %}<tr>
+  <td><a href="{{ url_for('indexation_detail', sid=h.id) }}">{{ h.site }}</a></td>
+  <td class="mut">{{ h.date_gsc or '—' }}</td>
+  <td>{{ h.indexees if h.indexees is not none else '—' }}</td>
+  <td>{{ h.non_indexees if h.non_indexees is not none else '—' }}</td>
+  <td>{% if h.n_alertes %}<span class="pill s-error">{{ h.n_alertes }}</span>
+      {% else %}<span class="pill s-done">0</span>{% endif %}</td>
+  <td class="mut">{{ h.quand }}</td>
+</tr>{% endfor %}
+</tbody></table></div></div>
+{% endif %}"""
+
+
+IDX_DETAIL = """
+<h1>{{ snap.site }}</h1>
+<p class="sub">Import du {{ quand }}{% if r.date %} — etat Search Console au {{ r.date }}{% endif %}
+  {% if precedent %} · comparaison avec l'import du {{ precedent_quand }}{% endif %}</p>
+
+{% if alertes %}
+<div class="card" style="border-color:var(--err)">
+  <h2 style="margin:0 0 12px">Ce qui doit vous alerter</h2>
+  {% for a in alertes %}
+  <div style="display:flex;gap:10px;padding:9px 0;border-top:1px solid var(--line)">
+    <span class="pill s-{{ 'error' if a.gravite == 'critique' else 'running' }}"
+          style="height:fit-content;white-space:nowrap">
+      {{ '⛔ critique' if a.gravite == 'critique' else '⚠ a verifier' }}</span>
+    <div><b>{{ a.titre }}</b>{% if a.detail %}<div class="mut" style="font-size:13px">{{ a.detail }}</div>{% endif %}</div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="msg ok">Aucune hausse anormale detectee sur cet import.</div>
+{% endif %}
+
+<div class="row" style="gap:14px;margin-bottom:18px">
+  <div class="card" style="margin:0"><div class="mut" style="font-size:12px">PAGES INDEXEES</div>
+    <div style="font-size:27px;font-weight:650">{{ r.indexees if r.indexees is not none else '—' }}</div></div>
+  <div class="card" style="margin:0"><div class="mut" style="font-size:12px">PAGES NON INDEXEES</div>
+    <div style="font-size:27px;font-weight:650;color:var(--serie)">{{ r.non_indexees if r.non_indexees is not none else '—' }}</div></div>
+  <div class="card" style="margin:0"><div class="mut" style="font-size:12px">SUR 30 JOURS</div>
+    <div style="font-size:27px;font-weight:650;{% if (r.delta_30j or 0) > 0 %}color:var(--err){% endif %}">
+      {% if r.delta_30j is defined %}{{ '+' if r.delta_30j >= 0 }}{{ r.delta_30j }}{% else %}—{% endif %}</div></div>
+  <div class="card" style="margin:0"><div class="mut" style="font-size:12px">PAGES A PROBLEMES</div>
+    <div style="font-size:27px;font-weight:650">{{ r.pages_a_problemes or 0 }}</div></div>
+</div>
+
+{% if courbe %}
+<div class="card">
+  <h2 style="margin:0 0 2px">Pages non indexees</h2>
+  <p class="mut" style="margin:0 0 10px;font-size:13px">{{ courbe|length }} jours d'historique fournis par la Search Console.</p>
+  <div id="chartwrap" style="position:relative">
+    <svg id="chart" viewBox="0 0 720 210" preserveAspectRatio="none" role="img"
+         aria-label="Evolution du nombre de pages non indexees sur {{ courbe|length }} jours"
+         style="width:100%;height:210px;display:block"></svg>
+    <div id="tip" style="position:absolute;display:none;pointer-events:none;background:var(--panel);
+         border:1px solid var(--line);border-radius:8px;padding:6px 9px;font-size:12.5px;
+         box-shadow:0 4px 14px rgba(0,0,0,.12);white-space:nowrap"></div>
+  </div>
+  <details style="margin-top:10px"><summary class="mut" style="cursor:pointer;font-size:13px">Voir les valeurs</summary>
+    <div class="wrap" style="max-height:220px;overflow:auto;margin-top:8px"><table>
+      <thead><tr><th>Date</th><th>Non indexees</th><th>Indexees</th></tr></thead><tbody>
+      {% for c in courbe|reverse %}<tr><td>{{ c.date }}</td><td>{{ c.non_indexees }}</td>
+        <td class="mut">{{ c.indexees if c.indexees is not none else '—' }}</td></tr>{% endfor %}
+      </tbody></table></div>
+  </details>
+</div>
+{% endif %}
+
+{% if motifs %}
+<h2>Pourquoi ces pages ne sont pas indexees</h2>
+<div class="card" style="padding:6px 8px"><div class="wrap"><table>
+<thead><tr><th>Motif</th><th>Pages</th><th>Evolution</th><th>Gravite</th><th>Que faire</th></tr></thead><tbody>
+{% for m in motifs %}<tr>
+  <td><b>{{ m.libelle }}</b></td>
+  <td style="font-variant-numeric:tabular-nums">{{ m.pages }}</td>
+  <td style="font-variant-numeric:tabular-nums">
+    {% if m.delta is not none %}
+      <span {% if m.delta > 0 %}style="color:var(--err);font-weight:600"{% elif m.delta < 0 %}style="color:var(--accent)"{% endif %}>
+      {{ '+' if m.delta > 0 }}{{ m.delta }}</span>
+    {% else %}<span class="mut">1er import</span>{% endif %}</td>
+  <td><span class="pill s-{{ 'error' if m.gravite == 'critique' else ('running' if m.gravite == 'eleve' else 'done') }}">{{ m.gravite }}</span></td>
+  <td class="mut" style="font-size:12.5px;max-width:340px">{{ m.aide }}</td>
+</tr>{% endfor %}
+</tbody></table></div></div>
+{% endif %}
+
+{% if urls %}
+<h2>URL concernees {% if croise %}<span class="mut" style="font-size:13px;font-weight:400">— confrontees a votre crawl du {{ crawl_quand }}</span>{% endif %}</h2>
+{% if not croise %}<div class="msg" style="background:var(--warn-soft);color:var(--warn)">
+  Aucun crawl de ce domaine dans l'outil : lancez-en un pour savoir ce que repondent ces URL aujourd'hui.</div>{% endif %}
+<div class="card" style="padding:6px 8px"><div class="wrap"><table>
+<thead><tr><th>URL</th><th>Motif Google</th>{% if croise %}<th>Statut reel</th><th>Liens entrants</th>
+  <th>Diagnostic</th>{% endif %}</tr></thead><tbody>
+{% for u in urls %}<tr>
+  <td style="max-width:320px;word-break:break-all"><a href="{{ u.url }}" target="_blank" rel="noopener">{{ u.url }}</a></td>
+  <td class="mut" style="font-size:12.5px">{{ u.motif }}</td>
+  {% if croise %}
+  <td>{% if u.statut_reel %}<span class="pill s-{{ 'done' if u.statut_reel == 200 else 'error' }}">{{ u.statut_reel }}</span>
+      {% else %}<span class="mut">absente</span>{% endif %}</td>
+  <td style="font-variant-numeric:tabular-nums">{{ u.liens_entrants if u.liens_entrants is not none else '—' }}</td>
+  <td class="mut" style="font-size:12.5px;max-width:320px">{{ u.diagnostic }}</td>
+  {% endif %}
+</tr>{% endfor %}
+</tbody></table></div></div>
+{% endif %}
+
+<script>
+const SERIE = {{ courbe_json|safe }}, SAUT = {{ saut_json|safe }};
+if (SERIE.length > 1) {
+  const svg = document.getElementById('chart'), tip = document.getElementById('tip');
+  const W = 720, H = 210, ML = 46, MR = 14, MT = 14, MB = 26;
+  const iw = W - ML - MR, ih = H - MT - MB;
+  const vals = SERIE.map(d => d.non_indexees);
+  const vmax = Math.max(...vals), vmin = Math.min(...vals);
+  const top = vmax + Math.max(1, (vmax - vmin) * 0.15), bot = Math.max(0, vmin - (vmax - vmin) * 0.15);
+  const X = i => ML + (SERIE.length === 1 ? iw / 2 : i * iw / (SERIE.length - 1));
+  const Y = v => MT + ih - (v - bot) / Math.max(1, top - bot) * ih;
+  const fr = n => n.toLocaleString('fr-FR');
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (t, a) => { const e = document.createElementNS(NS, t);
+    for (const k in a) e.setAttribute(k, a[k]); return e; };
+
+  // grille et graduations, volontairement discretes
+  for (let g = 0; g <= 2; g++) {
+    const v = bot + (top - bot) * g / 2, y = Y(v);
+    svg.appendChild(el('line', {x1: ML, x2: W - MR, y1: y, y2: y,
+      stroke: 'var(--line)', 'stroke-width': 1}));
+    const t = el('text', {x: ML - 8, y: y + 4, 'text-anchor': 'end',
+      fill: 'var(--muted)', 'font-size': 11}); t.textContent = fr(Math.round(v));
+    svg.appendChild(t);
+  }
+  [[0, 'start'], [SERIE.length - 1, 'end']].forEach(([i, anc]) => {
+    const t = el('text', {x: X(i), y: H - 8, 'text-anchor': anc, fill: 'var(--muted)', 'font-size': 11});
+    t.textContent = SERIE[i].date; svg.appendChild(t);
+  });
+
+  const d = SERIE.map((p, i) => (i ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(p.non_indexees).toFixed(1)).join(' ');
+  svg.appendChild(el('path', {d: d + ` L${X(SERIE.length-1)} ${MT+ih} L${X(0)} ${MT+ih} Z`,
+    fill: 'var(--serie-soft)', stroke: 'none'}));
+  svg.appendChild(el('path', {d: d, fill: 'none', stroke: 'var(--serie)', 'stroke-width': 2,
+    'stroke-linejoin': 'round', 'stroke-linecap': 'round'}));
+
+  // le jour de la hausse brutale : repere + etiquette, jamais la couleur seule
+  if (SAUT) {
+    const i = SERIE.findIndex(p => p.date === SAUT.date);
+    if (i > 0) {
+      svg.appendChild(el('line', {x1: X(i), x2: X(i), y1: MT, y2: MT + ih,
+        stroke: 'var(--err)', 'stroke-width': 1, 'stroke-dasharray': '3 3'}));
+      const t = el('text', {x: Math.min(X(i) + 6, W - MR - 100), y: MT + 12,
+        fill: 'var(--err)', 'font-size': 11, 'font-weight': 600});
+      t.textContent = '+' + SAUT.pages + ' le ' + SAUT.date; svg.appendChild(t);
+    }
+  }
+
+  // derniere valeur etiquetee directement
+  const last = SERIE.length - 1;
+  svg.appendChild(el('circle', {cx: X(last), cy: Y(vals[last]), r: 4, fill: 'var(--serie)',
+    stroke: 'var(--panel)', 'stroke-width': 2}));
+
+  const cur = el('line', {x1: 0, x2: 0, y1: MT, y2: MT + ih, stroke: 'var(--muted)',
+    'stroke-width': 1, opacity: 0, 'pointer-events': 'none'});
+  const dot = el('circle', {r: 4.5, fill: 'var(--serie)', stroke: 'var(--panel)',
+    'stroke-width': 2, opacity: 0, 'pointer-events': 'none'});
+  svg.appendChild(cur); svg.appendChild(dot);
+  const hit = el('rect', {x: ML, y: MT, width: iw, height: ih, fill: 'transparent'});
+  svg.appendChild(hit);
+  hit.addEventListener('mousemove', e => {
+    const box = svg.getBoundingClientRect();
+    const px = (e.clientX - box.left) / box.width * W;
+    let i = Math.round((px - ML) / iw * (SERIE.length - 1));
+    i = Math.max(0, Math.min(SERIE.length - 1, i));
+    const p = SERIE[i];
+    cur.setAttribute('x1', X(i)); cur.setAttribute('x2', X(i)); cur.setAttribute('opacity', .5);
+    dot.setAttribute('cx', X(i)); dot.setAttribute('cy', Y(p.non_indexees)); dot.setAttribute('opacity', 1);
+    tip.style.display = 'block';
+    tip.innerHTML = '<b>' + fr(p.non_indexees) + '</b> non indexees<br><span style="color:var(--muted)">' + p.date + '</span>';
+    const wrap = document.getElementById('chartwrap').getBoundingClientRect();
+    tip.style.left = Math.min(wrap.width - tip.offsetWidth - 4,
+                              Math.max(0, (X(i) / W * wrap.width) - tip.offsetWidth / 2)) + 'px';
+    tip.style.top = Math.max(0, (Y(p.non_indexees) / H * 210) - tip.offsetHeight - 10) + 'px';
+  });
+  hit.addEventListener('mouseleave', () => {
+    cur.setAttribute('opacity', 0); dot.setAttribute('opacity', 0); tip.style.display = 'none';
+  });
+}
+</script>"""
 
 
 # --------------------------------------------------------------------- routes
@@ -604,6 +820,113 @@ def rapport(jid):
     if not job["report"] or not os.path.isfile(job["report"]):
         abort(404)
     return send_file(job["report"])
+
+
+# ------------------------------------------------------ suivi d'indexation
+def _quand(ts):
+    return time.strftime("%d/%m/%Y %H:%M", time.localtime(ts)) if ts else "—"
+
+
+@app.route("/indexation", methods=["GET", "POST"])
+@login_required
+def indexation():
+    u = request.user
+    if request.method == "POST":
+        check_csrf()
+        from .gsc_index import analyse, croiser_urls, parse_export
+        up = request.files.get("export")
+        if not up or not up.filename:
+            flash("Aucun fichier fourni.", "ko")
+            return redirect(url_for("indexation"))
+        # Le nom du fichier porte le motif ("Introuvable (404).csv") : on le conserve,
+        # c'est lui qui permet de classer les URL quand l'export n'a pas de colonne motif.
+        d = os.path.join(OUT, "uploads", uuid.uuid4().hex[:8])
+        os.makedirs(d, exist_ok=True)
+        name = secure_filename(up.filename) or "export.csv"
+        if not name.lower().endswith((".zip", ".csv", ".tsv")):
+            name += ".csv"
+        tmp = os.path.join(d, name)
+        up.save(tmp)
+        try:
+            parsed = parse_export(tmp)
+        except Exception as exc:
+            flash("Fichier illisible (%s). Attendu : l'export du rapport Pages." % type(exc).__name__, "ko")
+            import shutil
+            shutil.rmtree(os.path.dirname(tmp), ignore_errors=True)
+            return redirect(url_for("indexation"))
+        finally:
+            pass
+
+        if not (parsed["courbe"] or parsed["motifs"] or parsed["urls"]):
+            flash("Rien de reconnu dans ce fichier. Colonnes vues : %s"
+                  % " | ".join("%s (%s)" % (f["nom"], ", ".join(f["colonnes"][:4]))
+                               for f in parsed["fichiers"]), "ko")
+            import shutil
+            shutil.rmtree(os.path.dirname(tmp), ignore_errors=True)
+            return redirect(url_for("indexation"))
+
+        site = (request.form.get("site") or "").strip()
+        if not site and parsed["urls"]:
+            from urllib.parse import urlsplit
+            site = urlsplit(parsed["urls"][0]["url"]).netloc
+        site = site or "sans nom"
+
+        prev = db.last_index_snapshot(u["id"], site)
+        import json as _json
+        res = analyse(parsed, _json.loads(prev["motifs"]) if prev else None)
+
+        job = db.last_crawl_for_host(u["id"], site, u["role"] == "admin") if parsed["urls"] else None
+        if job and job.get("crawl_file") and os.path.isfile(job["crawl_file"]):
+            from .store import load
+            try:
+                res = croiser_urls(res, load(job["crawl_file"]))
+                res["resume"]["crawl_job"] = job["id"]
+                res["resume"]["crawl_quand"] = _quand(job["finished_at"])
+            except Exception:
+                pass
+
+        sid = db.add_index_snapshot(u["id"], site, res)
+        try:
+            import shutil
+            shutil.rmtree(os.path.dirname(tmp), ignore_errors=True)
+        except OSError:
+            pass
+        n = len([a for a in res["alertes"] if a["gravite"] in ("critique", "eleve")])
+        flash("Import analyse : %d point(s) d'alerte." % n if n else "Import analyse, rien d'anormal.",
+              "ko" if n else "ok")
+        return redirect(url_for("indexation_detail", sid=sid))
+
+    import json as _json
+    hist = db.list_index_snapshots(u["id"])
+    for h in hist:
+        h["quand"] = _quand(h["imported_at"])
+        h["n_alertes"] = len([a for a in _json.loads(h["alertes"] or "[]")
+                              if a["gravite"] in ("critique", "eleve")])
+    sites = db.index_sites(u["id"])
+    return page(IDX_BODY, "Indexation", u, historique=hist,
+                dernier_site=sites[0]["site"] if sites else "")
+
+
+@app.route("/indexation/<int:sid>")
+@login_required
+def indexation_detail(sid):
+    import json as _json
+    snap = db.get_index_snapshot(sid, request.user["id"], request.user["role"] == "admin")
+    if not snap:
+        abort(404)
+    r = _json.loads(snap["resume"] or "{}")
+    courbe = _json.loads(snap["courbe"] or "[]")
+    motifs = _json.loads(snap["motifs"] or "[]")
+    alertes = _json.loads(snap["alertes"] or "[]")
+    urls = _json.loads(snap["urls"] or "[]")
+    prev = db.last_index_snapshot(snap["user_id"], snap["site"], before=sid)
+    return page(IDX_DETAIL, "Indexation — %s" % snap["site"], request.user,
+                snap=snap, r=r, courbe=courbe, motifs=motifs, alertes=alertes, urls=urls,
+                quand=_quand(snap["imported_at"]),
+                precedent=bool(prev), precedent_quand=_quand(prev["imported_at"]) if prev else "",
+                croise=any("statut_reel" in u for u in urls),
+                crawl_quand=r.get("crawl_quand", ""),
+                courbe_json=_json.dumps(courbe), saut_json=_json.dumps(r.get("saut")))
 
 
 def run(host="127.0.0.1", port=5005, open_browser=True):

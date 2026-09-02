@@ -134,6 +134,67 @@ def cmd_hashpass(args):
     return 0
 
 
+def cmd_index(args):
+    """Analyse un export du rapport d'indexation de la Search Console."""
+    from .gsc_index import analyse, croiser_urls, parse_export
+    parsed = parse_export(args.export)
+    print("🔎  Fichiers lus :")
+    for f in parsed["fichiers"]:
+        print("   %-26s %-12s %5d ligne(s)" % (f["nom"][:26], f["type"], f["lignes"]))
+    if parsed["inconnus"]:
+        print("   (non reconnus : %s — colonnes inattendues, signalez-le)"
+              % ", ".join(parsed["inconnus"]))
+
+    precedent = None
+    if args.compare:
+        prev = parse_export(args.compare)
+        precedent = prev["motifs"]
+        print("   comparaison avec %s" % os.path.basename(args.compare))
+
+    res = analyse(parsed, precedent)
+    if args.crawl:
+        from .store import load
+        res = croiser_urls(res, load(args.crawl))
+
+    r = res["resume"]
+    print()
+    if r.get("date"):
+        print("  ── Etat au %s " % r["date"] + "─" * 34)
+        print("  Pages indexees ........... %s" % f"{r['indexees']:,}".replace(",", " "))
+        print("  Pages NON indexees ....... %s" % f"{r['non_indexees']:,}".replace(",", " "))
+        for k, lib in (("7j", "7 jours"), ("30j", "30 jours"), ("90j", "90 jours")):
+            if "delta_" + k in r:
+                signe = "+" if r["delta_" + k] >= 0 else ""
+                print("  Sur %-9s ............ %s%d pages (%s%.1f %%)"
+                      % (lib, signe, r["delta_" + k], signe, r["pct_" + k]))
+        print("  " + "─" * 56)
+
+    if res["alertes"]:
+        print("\n  ⚠️  A verifier en priorite :")
+        for a in res["alertes"][:8]:
+            print("   • [%s] %s" % (a["gravite"], a["titre"]))
+            if a["detail"]:
+                print("     %s" % a["detail"])
+
+    if res["motifs"]:
+        print("\n  Repartition des pages non indexees :")
+        print("   %-58s %7s %9s" % ("MOTIF", "PAGES", "EVOLUTION"))
+        for m in res["motifs"]:
+            ev = ("%+d" % m["delta"]) if m.get("delta") is not None else "—"
+            print("   %-58s %7d %9s  [%s]" % (m["libelle"][:58], m["pages"], ev, m["gravite"]))
+
+    if res["urls"]:
+        print("\n  %d URL listees." % len(res["urls"]))
+        if args.crawl:
+            print("   %-52s %-7s %s" % ("URL", "CRAWL", "DIAGNOSTIC"))
+            for u in res["urls"][:25]:
+                print("   %-52s %-7s %s" % (u["url"][-52:], u.get("statut_reel") or "—",
+                                            (u.get("diagnostic") or "")[:70]))
+        else:
+            print("   (ajoutez --crawl crawl.json.gz pour confronter ces URL a votre site)")
+    return 0
+
+
 def cmd_users(args):
     """Gestion des comptes en ligne de commande (bootstrap, depannage)."""
     import getpass
@@ -273,6 +334,12 @@ def build_parser():
     g.add_argument("--no-check-gsc", action="store_true")
     g.add_argument("--no-open", action="store_true")
     g.set_defaults(func=cmd_gsc)
+
+    ix = sub.add_parser("index", help="analyser un export du rapport d'indexation (Pages)")
+    ix.add_argument("export", help="export Search Console > Indexation > Pages (.zip ou .csv)")
+    ix.add_argument("--compare", help="export precedent, pour mesurer l'evolution")
+    ix.add_argument("--crawl", help="crawl sauvegarde (.json.gz) a confronter aux URL")
+    ix.set_defaults(func=cmd_index)
 
     us = sub.add_parser("users", help="gerer les comptes de l'interface web")
     us.add_argument("action", choices=["list", "add", "passwd", "enable", "disable",

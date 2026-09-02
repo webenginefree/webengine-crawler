@@ -103,8 +103,15 @@ def run(jid):
         render_html(data, report)
         csv_dir = os.path.join(out, base + "-csv")
         export_csv(data, csv_dir)
+        crawl_file = os.path.join(out, base + ".json.gz")
+        try:
+            from .store import save
+            save(result, crawl_file)          # sert au croisement avec la Search Console
+        except Exception:
+            crawl_file = None
 
         db.update_job(jid, state="done", pct=100, report=report, csv_dir=csv_dir,
+                      crawl_file=crawl_file,
                       crawled=data["resume"]["total"], finished_at=time.time(),
                       message="%d URL analysees, %d erreur(s), %d groupe(s) de H1 en double."
                               % (data["resume"]["total"], data["resume"]["erreurs_4xx"]

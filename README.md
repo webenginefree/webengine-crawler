@@ -60,7 +60,35 @@ Pas seulement « cette URL est cassée », mais **quelle page contient le lien e
 
 ![H1 dupliqués regroupés](docs/img/04-h1-doubles.jpg)
 
-### 3. Search Console : d'où vient cette URL ?
+### 3. Indexation : ce qui se dégrade, et depuis quand
+
+L'export **Indexation › Pages** contient la courbe des 90 derniers jours. WebEngine Crawler
+la lit, repère les hausses et **date l'incident** — sans attendre un second import.
+
+```
+⚠️  A verifier en priorite :
+ • [critique] Les pages non indexees augmentent : +140 en 30 jours (+63.9 %)
+   Passe de 219 a 359 entre le 2026-08-03 et le 2026-09-02.
+ • [eleve] Hausse brutale le 2026-08-12 : +121 pages non indexees en un jour
+   Cherchez ce qui a change ce jour-la : mise en ligne, migration, robots.txt…
+```
+
+Chaque motif est classé par gravité, comparé à l'import précédent, et — si vous exportez la
+liste d'URL d'un motif — confronté à votre dernier crawl :
+
+| URL | Google dit | Votre site répond | Diagnostic |
+|---|---|---|---|
+| /produit/modele-retire | 404 | **404** | Toujours en 404. **39 liens internes** pointent encore dessus |
+| /categorie/running-homme | 404 | **200** | Corrigée : demandez une réindexation |
+| /blog/vieil-article | 404 | absente | Orpheline, hors du maillage |
+
+```bash
+./webengine.sh index ~/Téléchargements/indexation.zip \
+    --compare ~/exports/indexation-du-mois-dernier.zip \
+    --crawl crawl.json.gz
+```
+
+### 4. Search Console : d'où vient cette URL ?
 
 Déposez votre export : chaque URL est croisée avec le crawl. Statut réel, indexabilité,
 et **provenance** — liens internes, sitemap, redirection… ou rien du tout.

@@ -108,6 +108,33 @@ Les trois cas typiques que ça révèle :
 - une URL **orpheline** (Google la connaît, aucun lien interne n'y mène) → à remailler ;
 - une URL **redirigée** encore listée partout → à mettre à jour dans les liens internes.
 
+## Suivi d'indexation
+
+L'export **Search Console › Indexation › Pages** (bouton *Exporter*, en `.zip`) contient :
+
+| Fichier | Contenu | Ce qu'on en tire |
+|---|---|---|
+| `Chart.csv` | courbe indexées / non indexées sur ~90 jours | tendance 7/30/90 jours, date de la hausse brutale |
+| `Table.csv` | répartition par motif (404, noindex, robots.txt…) | gravité, comparaison avec l'import précédent |
+| `<motif>.csv` | liste d'URL d'un motif (export depuis le détail) | croisement avec le dernier crawl |
+
+Les libellés français et anglais sont reconnus. **Conservez le nom du fichier** exporté depuis
+un motif (`Introuvable (404).csv`) : c'est lui qui porte le motif quand l'export n'a pas de
+colonne dédiée.
+
+```bash
+./webengine.sh index export.zip                       # analyse simple
+./webengine.sh index export.zip --compare ancien.zip  # évolution entre deux exports
+./webengine.sh index export.zip --crawl crawl.json.gz # confrontation au site
+```
+
+Dans l'interface web, l'onglet **Indexation** historise chaque import par site : la comparaison
+avec le précédent est automatique, et les crawls lancés depuis l'outil servent au croisement
+sans manipulation.
+
+Seuils d'alerte : hausse d'au moins 10 pages **et** 5 % sur 7 jours, ou 25 pages et 10 % sur
+30 jours ; sur un motif, +10 pages ou +20 %.
+
 ## Exports CSV
 
 `--csv exports/` produit : `urls.csv`, `erreurs.csv` (avec pages sources et ancres),

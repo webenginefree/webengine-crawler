@@ -45,6 +45,21 @@ CREATE TABLE IF NOT EXISTS jobs (
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 CREATE INDEX IF NOT EXISTS idx_jobs_user ON jobs(user_id, created_at DESC);
+CREATE TABLE IF NOT EXISTS index_snapshots (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER NOT NULL,
+    site        TEXT NOT NULL,
+    imported_at REAL NOT NULL,
+    date_gsc    TEXT,
+    indexees    INTEGER,
+    non_indexees INTEGER,
+    resume      TEXT NOT NULL DEFAULT '{}',
+    motifs      TEXT NOT NULL DEFAULT '[]',
+    alertes     TEXT NOT NULL DEFAULT '[]',
+    courbe      TEXT NOT NULL DEFAULT '[]',
+    urls        TEXT NOT NULL DEFAULT '[]'
+);
+CREATE INDEX IF NOT EXISTS idx_snap_user ON index_snapshots(user_id, site, imported_at DESC);
 CREATE TABLE IF NOT EXISTS login_attempts (
     ip     TEXT PRIMARY KEY,
     fails  INTEGER NOT NULL DEFAULT 0,
@@ -76,6 +91,9 @@ def init():
     con = connect()
     with con:
         con.executescript(SCHEMA)
+        cols = {r["name"] for r in con.execute("PRAGMA table_info(jobs)")}
+        if "crawl_file" not in cols:      # migration des bases existantes
+            con.execute("ALTER TABLE jobs ADD COLUMN crawl_file TEXT")
     con.close()
 
 
@@ -184,7 +202,7 @@ def create_job(jid, user_id, url, params, gsc_path=None):
 
 def update_job(jid, **fields):
     allowed = {"state", "pct", "message", "crawled", "report", "csv_dir", "pid",
-               "cancel", "finished_at"}
+               "cancel", "finished_at", "crawl_file"}
     sets = {k: v for k, v in fields.items() if k in allowed}
     if not sets:
         return
@@ -252,3 +270,75 @@ def orphan_jobs():
                              for i in lost])
     con.close()
     return lost
+
+
+# ------------------------------------------------------- suivi d'indexation
+def add_index_snapshot(user_id, site, res):
+    """Enregistre un import du rapport d'indexation. Retourne son id."""
+    r = res["resume"]
+    con = connect()
+    with con:
+        cur = con.execute(
+            "INSERT INTO index_snapshots (user_id,site,imported_at,date_gsc,indexees,"
+            "non_indexees,resume,motifs,alertes,courbe,urls) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            (user_id, site, time.time(), r.get("date"), r.get("indexees"), r.get("non_indexees"),
+             json.dumps(r), json.dumps(res["motifs"]), json.dumps(res["alertes"]),
+             json.dumps(res["courbe"]), json.dumps(res["urls"][:2000])))
+        sid = cur.lastrowid
+    con.close()
+    return sid
+
+
+def last_index_snapshot(user_id, site, before=None):
+    con = connect()
+    q = ("SELECT * FROM index_snapshots WHERE user_id=? AND site=?"
+         + (" AND id<?" if before else "") + " ORDER BY imported_at DESC LIMIT 1")
+    args = (user_id, site) + ((before,) if before else ())
+    row = con.execute(q, args).fetchone()
+    con.close()
+    return dict(row) if row else None
+
+
+def get_index_snapshot(sid, user_id=None, is_admin=False):
+    con = connect()
+    row = con.execute("SELECT s.*, u.username FROM index_snapshots s JOIN users u ON u.id=s.user_id"
+                      " WHERE s.id=?", (sid,)).fetchone()
+    con.close()
+    if not row:
+        return None
+    d = dict(row)
+    if user_id is not None and not is_admin and d["user_id"] != user_id:
+        return None
+    return d
+
+
+def list_index_snapshots(user_id, limit=50):
+    con = connect()
+    rows = con.execute("SELECT id,site,imported_at,date_gsc,indexees,non_indexees,alertes"
+                       " FROM index_snapshots WHERE user_id=?"
+                       " ORDER BY imported_at DESC LIMIT ?", (user_id, limit)).fetchall()
+    con.close()
+    return [dict(r) for r in rows]
+
+
+def index_sites(user_id):
+    con = connect()
+    rows = con.execute("SELECT site, COUNT(*) n, MAX(imported_at) last FROM index_snapshots"
+                       " WHERE user_id=? GROUP BY site ORDER BY last DESC", (user_id,)).fetchall()
+    con.close()
+    return [dict(r) for r in rows]
+
+
+def last_crawl_for_host(user_id, host, is_admin=False):
+    """Dernier crawl termine d'un domaine, pour confronter les URL de la Search Console."""
+    con = connect()
+    q = ("SELECT * FROM jobs WHERE state='done' AND crawl_file IS NOT NULL"
+         " AND (url LIKE ? OR url LIKE ?)")
+    args = ["%//" + host + "/%", "%//" + host]
+    if not is_admin:
+        q += " AND user_id=?"
+        args.append(user_id)
+    q += " ORDER BY created_at DESC LIMIT 1"
+    row = con.execute(q, args).fetchone()
+    con.close()
+    return dict(row) if row else None
