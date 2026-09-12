@@ -155,6 +155,19 @@ images sans alt.
 **Indexabilité** — noindex, canonical absente, canonicalisée, canonical vers une URL non 200.
 **Maillage** — pages sans lien entrant, pages profondes, URL du sitemap non 200 ou jamais maillées.
 **Performance** — temps de réponse, poids, ratio texte/HTML.
+**Fiabilité de l'analyse** — détection des pages rendues côté client, signalée en tête de rapport :
+sur ces pages, un « H1 manquant » n'est pas un vrai problème, c'est le crawler qui ne voit rien.
+
+### Extraction personnalisée
+
+```bash
+./webengine.sh crawl https://boutique.fr \
+  --extract "Prix=css:.product-price" \
+  --extract "Reference=regex:(REF-[0-9]{6})" \
+  --extract "Auteur=xpath://meta[@name='author']/@content"
+```
+
+Une colonne par extracteur dans le rapport et dans `extraction.csv`. CSS, XPath et regex.
 
 ## Ce que WebEngine Crawler ne fait pas
 

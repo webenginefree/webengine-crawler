@@ -72,6 +72,7 @@ def build_data(result, gsc_items=None, params=None):
             [{"url": u, **d} for u, d in result.external.items()],
             key=lambda x: -x["count"])[:2000],
         "sitemap": sorted(result.sitemap_urls),
+        "extracteurs": sorted({k for p in result.pages.values() for k in (p.extraits or {})}),
         "gsc": None,
     }
     if gsc_items is not None:
@@ -135,6 +136,12 @@ def export_csv(data, outdir):
 
     w("liens_entrants.csv", ["URL cible", "Page source", "Ancre", "Type", "Rel"],
       [[t, l["from"], l["anchor"], l["type"], l["rel"]] for t, ls in inl.items() for l in ls])
+
+    if data.get("extracteurs"):
+        cols = data["extracteurs"]
+        w("extraction.csv", ["URL", "Statut"] + cols,
+          [[p["url"], p["status"]] + [" | ".join((p.get("extraits") or {}).get(c, [])) for c in cols]
+           for p in data["pages"]])
 
     if data.get("gsc"):
         w("search_console.csv",

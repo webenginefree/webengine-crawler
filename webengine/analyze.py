@@ -42,6 +42,7 @@ def duplicate_groups(pages, key, min_len=1):
 
 
 def analyze(result):
+    from .rendu_js import SEUIL as JS_SEUIL, resume_site
     pages = result.pages
     inlinks = result.inlinks
     issues = []
@@ -55,6 +56,15 @@ def analyze(result):
                        "extra": extra or {}})
 
     html200 = {u: p for u, p in pages.items() if p.is_html and p.status == 200}
+
+    # ------------------------------------------- fiabilite meme de l'analyse
+    js = resume_site(list(pages.values()))
+    add("rendu_js", "Pages rendues cote client : analyse peu fiable", "critique",
+        [u for u, p in pages.items() if getattr(p, "js_risk", 0) >= JS_SEUIL],
+        "Le contenu de ces pages est genere par JavaScript : ce crawler lit le HTML brut et "
+        "ne le voit pas. Les H1, textes et liens manquants ci-dessous sont probablement faux. "
+        "Verifiez avec l'inspection d'URL de la Search Console ou un outil qui rend le JS.",
+        {"part": js["part"], "framework": js["framework"], "verdict": js["verdict"]})
 
     # ------------------------------------------------------------- statuts
     add("erreur_connexion", "Erreurs de connexion (timeout, DNS)", "critique",
@@ -214,6 +224,7 @@ def analyze(result):
 
 
 def summary(result, analysis):
+    from .rendu_js import resume_site
     pages = result.pages
     html200 = [p for p in pages.values() if p.is_html and p.status == 200]
     counts = defaultdict(int)
@@ -245,4 +256,5 @@ def summary(result, analysis):
         "sitemap": len(result.sitemap_urls),
         "externes": len(result.external),
         "bloquees_robots": len(result.robots_blocked),
+        "rendu_js": resume_site(list(pages.values())),
     }

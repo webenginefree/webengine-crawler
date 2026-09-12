@@ -57,6 +57,21 @@ def _out_paths(args, host):
 def cmd_crawl(args):
     print("⚙️  WebEngine Crawler %s — crawl de %s" % (__version__, args.url), flush=True)
     tick = Ticker(args.max_pages)
+    extracteurs = []
+    lignes = list(args.extract or [])
+    if args.extract_file:
+        with open(args.extract_file, encoding="utf-8") as fh:
+            lignes += fh.read().splitlines()
+    if lignes:
+        from .extract import parse as parse_extracteurs
+        try:
+            extracteurs = parse_extracteurs(lignes)
+        except ValueError as exc:
+            print("Extraction : %s" % exc)
+            return 1
+        print("   %d extracteur(s) : %s" % (len(extracteurs),
+              ", ".join(e.nom for e in extracteurs)), flush=True)
+
     crawler = Crawler(
         args.url, max_pages=args.max_pages, max_depth=args.max_depth,
         threads=args.threads, delay=args.delay, user_agent=args.user_agent,
@@ -64,7 +79,8 @@ def cmd_crawl(args):
         respect_robots=not args.ignore_robots, include_re=args.include,
         exclude_re=args.exclude, use_sitemaps=not args.no_sitemap,
         check_external=args.check_external, progress=tick,
-        auth=tuple(args.auth.split(":", 1)) if args.auth else None)
+        auth=tuple(args.auth.split(":", 1)) if args.auth else None,
+        extractors=extracteurs)
     result = crawler.run()
     tick.done()
 
@@ -282,6 +298,12 @@ def cmd_serve(args):
 
 def print_summary(data):
     r = data["resume"]
+    js = r.get("rendu_js") or {}
+    if js.get("verdict"):
+        print("\n  ⚠️  %s%s" % (js["verdict"].upper(),
+                                 " (%s)" % js["framework"] if js.get("framework") else ""))
+        print("     %d page(s) sur %d dont le contenu vient du JavaScript." % (js["concernees"], js["total"]))
+        print("     Ce crawler lit le HTML brut : ce qui suit les concernant est peu fiable.")
     print("\n  ── Resume " + "─" * 46)
     print("  URL crawlees ............ %d  (%d indexables)" % (r["total"], r["indexables"]))
     print("  200 OK .................. %d" % r["ok"])
@@ -331,6 +353,11 @@ def build_parser():
     c.add_argument("--no-sitemap", action="store_true", help="ne pas lire les sitemaps")
     c.add_argument("--check-external", action="store_true", help="verifier les liens sortants")
     c.add_argument("--user-agent", default=DEFAULT_UA)
+    c.add_argument("--extract", action="append", default=[], metavar="NOM=TYPE:EXPR",
+                   help="extraction personnalisee, repetable "
+                        "(ex. \"Prix=css:.price\", \"Ref=regex:REF-([0-9]+)\")")
+    c.add_argument("--extract-file", dest="extract_file",
+                   help="fichier d'extracteurs, un par ligne")
     c.add_argument("--auth", help="auth basique user:motdepasse")
     c.add_argument("--no-open", action="store_true", help="ne pas ouvrir le navigateur")
     c.set_defaults(func=cmd_crawl)

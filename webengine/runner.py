@@ -58,6 +58,16 @@ def run(jid):
         stop["flag"] = True
     signal.signal(signal.SIGTERM, _term)
 
+    extracteurs = []
+    if params.get("extract"):
+        try:
+            from .extract import parse as parse_extracteurs
+            extracteurs = parse_extracteurs(params["extract"])
+        except ValueError as exc:
+            db.update_job(jid, state="error", finished_at=time.time(),
+                          message="Extraction : %s" % exc)
+            return 1
+
     crawler = None
     last = [0.0]
 
@@ -82,7 +92,8 @@ def run(jid):
                           max_depth=params["max_depth"], delay=params.get("delay", 0.0),
                           exclude_re=params.get("exclude_re") or None,
                           include_re=params.get("include_re") or None,
-                          respect_robots=params.get("respect_robots", True))
+                          respect_robots=params.get("respect_robots", True),
+                          extractors=extracteurs)
         result = crawler.run()
 
         if db.get_job(jid)["cancel"] or stop["flag"]:

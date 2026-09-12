@@ -129,6 +129,17 @@ const statusPill = s => { if(s===null||s===undefined) return '<span class="pill 
 const sevPill = s => '<span class="pill sev-'+s+'">'+s+'</span>';
 
 document.getElementById('site').textContent = D.meta.start_url;
+const JS = (D.resume && D.resume.rendu_js) || null;
+if (JS && JS.verdict) {
+  const b = document.createElement('div');
+  b.style.cssText = 'background:var(--crit-bg);color:var(--crit);padding:11px 20px;font-size:13.5px;' +
+    'border-bottom:1px solid var(--line);line-height:1.5';
+  b.innerHTML = '<b>⚠ ' + esc(JS.verdict.charAt(0).toUpperCase() + JS.verdict.slice(1)) + '</b>' +
+    (JS.framework ? ' (' + esc(JS.framework) + ')' : '') + ' — ' + nb(JS.concernees) + ' page(s) sur ' +
+    nb(JS.total) + '. Leur contenu est genere par JavaScript : ce rapport lit le HTML brut et ne le voit pas. ' +
+    'Les H1, textes et liens manquants sur ces pages sont probablement faux.';
+  document.querySelector('header').after(b);
+}
 if (D.meta.tronque) {
   const b = document.createElement('div');
   b.style.cssText = 'background:var(--mid-bg);color:var(--mid);padding:9px 20px;font-size:13px;' +
@@ -156,6 +167,10 @@ const VIEWS = [
  {id:'descdup', grp:'Qualite', label:'Descriptions en double', n:D.doublons.description.length},
  {id:'contdup', grp:'Qualite', label:'Contenus identiques', n:D.doublons.contenu.length},
  {id:'redirs', grp:'Qualite', label:'Redirections', n:P.filter(p=>p.status>=300&&p.status<400).length},
+ {id:'js', grp:'Qualite', label:'Rendu JavaScript', n:P.filter(p=>p.js_risk>=60).length,
+  hide:!P.some(p=>p.js_risk>=60)},
+ {id:'extraction', grp:'Donnees', label:'Extraction', n:P.filter(p=>p.extraits&&Object.keys(p.extraits).length).length,
+  hide:!(D.extracteurs||[]).length},
  {id:'urls', grp:'Donnees', label:'Toutes les URL', n:P.length},
  {id:'externes', grp:'Donnees', label:'Liens sortants', n:D.externes.length},
  {id:'sitemap', grp:'Donnees', label:'Sitemap', n:D.sitemap.length},
@@ -235,6 +250,18 @@ function render(keep){
   const m = document.getElementById('main');
   const v = current;
   if(v==='apercu') m.innerHTML = viewApercu();
+  else if(v==='js') m.innerHTML = head('Pages rendues cote client',
+      "Le contenu de ces pages vient du JavaScript. Le crawler lit le HTML brut : ce qu'il rapporte sur elles (H1, mots, liens) est probablement faux.")+
+    table([C_URL,{k:'js_risk',t:'Indice',num:true},{k:'js_framework',t:'Framework'},
+      {k:'word_count',t:'Mots vus',num:true},{k:'links_internal',t:'Liens vus',num:true},
+      {k:'js_signals',t:'Constats',raw:r=>(r.js_signals||[]).join('; '),
+       fn:r=>esc((r.js_signals||[]).join(' · '))}], P.filter(p=>p.js_risk>=60));
+  else if(v==='extraction') m.innerHTML = head('Extraction personnalisee',
+      'Valeurs relevees sur chaque page : ' + (D.extracteurs||[]).join(', ') + '.')+
+    table([C_URL,C_ST].concat((D.extracteurs||[]).map(c=>({k:'x_'+c,t:c,cls:'t',
+      raw:r=>((r.extraits||{})[c]||[]).join(' | '),
+      fn:r=>esc(short(((r.extraits||{})[c]||[]).join(' | '),80))}))),
+      P.filter(p=>p.extraits&&Object.keys(p.extraits).length));
   else if(v==='urls') m.innerHTML = head('Toutes les URL crawlees','Cliquez une ligne pour voir le detail et les liens entrants.')+
     table([C_URL,C_ST,{k:'indexability',t:'Indexabilite'},C_TIT,C_H1,
       {k:'word_count',t:'Mots',num:true,fn:r=>nb(r.word_count)},{k:'depth',t:'Prof.',num:true},

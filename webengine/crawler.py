@@ -95,6 +95,10 @@ class Page:
     hreflang: list = field(default_factory=list)
     error: str = ""
     is_html: bool = False
+    js_risk: int = 0
+    js_signals: list = field(default_factory=list)
+    js_framework: str = ""
+    extraits: dict = field(default_factory=dict)
     source: str = "lien"  # lien | sitemap | depart | gsc
 
     # calcule apres coup
@@ -128,7 +132,8 @@ class Crawler:
     def __init__(self, start_url, max_pages=0, max_depth=10, threads=8, delay=0.0,
                  user_agent=DEFAULT_UA, timeout=20, include_subdomains=False,
                  respect_robots=True, include_re=None, exclude_re=None,
-                 use_sitemaps=True, check_external=False, progress=None, auth=None):
+                 use_sitemaps=True, check_external=False, progress=None, auth=None,
+                 extractors=None):
         start = normalize_url(start_url)
         if not start:
             raise ValueError("URL de depart invalide: %s" % start_url)
@@ -148,6 +153,7 @@ class Crawler:
         self.check_external = check_external
         self.progress = progress or (lambda **kw: None)
         self.auth = auth
+        self.extractors = extractors or []
 
         self.result = CrawlResult(self.start_url)
         self.root = registrable(urlsplit(self.start_url).netloc)
@@ -369,6 +375,28 @@ class Crawler:
         page.images = len(imgs)
         page.images_no_alt = sum(1 for i in imgs if not (i.get("alt") or "").strip())
 
+        # Extraction personnalisee et detection du rendu JS : les deux ont besoin
+        # du document complet, scripts compris. Rien ici ne doit tuer le crawl.
+        html_text = body.decode("utf-8", "replace")
+        if self.extractors:
+            from .extract import appliquer, besoin_lxml
+            arbre = None
+            if besoin_lxml(self.extractors):
+                try:
+                    from lxml import html as lxml_html
+                    arbre = lxml_html.fromstring(body)
+                except Exception:
+                    arbre = None
+            try:
+                page.extraits = appliquer(self.extractors, soup, html_text, arbre)
+            except Exception:
+                page.extraits = {}
+        try:
+            from .rendu_js import signaux_dom
+            dom_js = signaux_dom(soup)          # releve sur le document intact
+        except Exception:
+            dom_js = {}
+
         for bad in soup(["script", "style", "noscript", "template", "svg"]):
             bad.decompose()
         text = clean(soup.get_text(" "))
@@ -403,6 +431,13 @@ class Crawler:
                         ext["sources"].append({"from": url, "anchor": anchor, "rel": rel})
         page.links_internal = internal
         page.links_external = external
+
+        try:
+            from .rendu_js import analyser
+            page.js_risk, page.js_signals, page.js_framework = analyser(
+                dom_js, html_text, page.word_count, internal, page.size)
+        except Exception:
+            pass
 
         if page.canonical and page.canonical != url and self.should_crawl(page.canonical):
             self._add_inlink(page.canonical, url, "(canonical)", kind="canonical")

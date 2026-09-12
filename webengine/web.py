@@ -293,6 +293,16 @@ INDEX_BODY = """
     <input type="file" name="gsc" accept=".csv,.zip,.txt,.tsv">
     <label>Exclure (expression reguliere, optionnel)</label>
     <input name="exclude" placeholder="/panier|\\?filtre=">
+    <details style="margin-top:16px">
+      <summary style="cursor:pointer;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)">
+        Extraction personnalisee (optionnel)</summary>
+      <p style="margin:10px 0 6px;font-size:13px;color:var(--muted)">
+        Une par ligne : <code>nom=css:selecteur</code>, <code>nom=css:selecteur@attribut</code>,
+        <code>nom=xpath:expression</code> ou <code>nom=regex:motif</code>.</p>
+      <textarea name="extract" rows="4" style="width:100%;padding:9px 11px;border:1px solid var(--line);
+        border-radius:9px;background:var(--bg);color:var(--ink);font:13px ui-monospace,Menlo,monospace"
+        placeholder="Prix=css:.product-price&#10;Canonique=css:link[rel=canonical]@href&#10;Auteur=xpath://meta[@name='author']/@content&#10;Reference=regex:(REF-[0-9]{6})"></textarea>
+    </details>
     <button id="go" type="submit">Lancer le crawl</button>
   </form>
 </div>
@@ -785,7 +795,16 @@ def api_crawl():
         gsc_path = os.path.join(OUT, "uploads", jid + ext)
         up.save(gsc_path)
 
+    extracteurs = (request.form.get("extract") or "").strip()
+    if extracteurs:
+        from .extract import parse as parse_extracteurs
+        try:
+            parse_extracteurs(extracteurs)
+        except ValueError as exc:
+            return jsonify(error="Extraction : %s" % exc), 400
+
     params = {
+        "extract": extracteurs,
         "max_pages": plafond(MAX_PAGES, u["max_pages"], request.form.get("max_pages")),
         "threads": max(1, min(16, int(request.form.get("threads") or 8))),
         "max_depth": max(1, min(50, int(request.form.get("max_depth") or 15))),

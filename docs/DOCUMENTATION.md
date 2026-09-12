@@ -142,6 +142,59 @@ Seuils d'alerte : hausse d'au moins 10 pages **et** 5 % sur 7 jours, ou 25 pages
 `liens_entrants.csv` et `search_console.csv`. Séparateur `;`, UTF-8 BOM : ça s'ouvre direct
 dans Excel / LibreOffice.
 
+## Détection du rendu JavaScript
+
+Un crawler qui lit le HTML brut ne voit rien d'un site rendu côté client : ni H1, ni texte,
+ni liens. Le vrai danger n'est pas l'absence de données, c'est de **rapporter « H1 manquant,
+contenu pauvre » avec aplomb** sur des pages qui vont parfaitement bien.
+
+WebEngine Crawler ne rend pas le JavaScript, mais il repère ces pages et le dit — en tête du
+rapport, dans le résumé console et dans une vue dédiée. L'indice combine plusieurs signaux :
+
+| Signal | Poids |
+|---|---|
+| Conteneur applicatif vide (`#root`, `#app`, `<app-root>`…) | +45 |
+| Moins de 50 mots de contenu | +25 |
+| Aucun lien interne dans le HTML | +20 |
+| `<noscript>` demandant d'activer JavaScript | +20 |
+| HTML lourd (> 40 Ko) pour moins de 150 mots | +15 |
+| Signature de framework (Next, Nuxt, Angular, Vue, Gatsby…) | +10 |
+| **Marqueur de rendu serveur** (`data-server-rendered`, `data-reactroot`) | **−35** |
+
+Au-delà de 60, la page est signalée. Le malus de rendu serveur est ce qui évite les faux
+positifs : un site Next.js **rendu serveur** contient bien `__NEXT_DATA__`, mais son contenu
+est là — il ne doit pas être signalé. Testé : SPA pure → 100, Next.js SSR → 0, Vue SSR → 0,
+page courte légitime (70 mots) → 12.
+
+## Extraction personnalisée
+
+Récupérer n'importe quelle valeur de chaque page, en colonne dans le rapport et les CSV.
+
+```
+nom=css:selecteur            texte de l'élément
+nom=css:selecteur@attribut   valeur d'un attribut
+nom=xpath:expression         XPath complet
+nom=regex:motif              1er groupe capturant, sinon la correspondance
+```
+
+```bash
+./webengine.sh crawl https://boutique.fr \
+  --extract "Prix=css:.product-price" \
+  --extract "Canonique=css:link[rel=canonical]@href" \
+  --extract "Auteur=xpath://meta[@name='author']/@content" \
+  --extract "Reference=regex:(REF-[0-9]{6})"
+
+./webengine.sh crawl https://boutique.fr --extract-file extracteurs.txt
+```
+
+Dans l'interface web, le bloc *Extraction personnalisée* du formulaire accepte les mêmes lignes.
+La syntaxe est validée **avant** le lancement : une expression fautive est refusée tout de suite
+plutôt que de gâcher un crawl. Une extraction qui échoue sur une page donnée n'interrompt jamais
+le crawl, elle inscrit simplement l'erreur dans la cellule.
+
+Résultats dans la vue **Extraction** du rapport et dans `extraction.csv` (une colonne par
+extracteur). Jusqu'à 20 valeurs conservées par extracteur et par page.
+
 ## Gros crawls
 
 Il n'y a pas de plafond par défaut : le crawl s'arrête quand le site est épuisé. Trois points
