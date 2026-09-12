@@ -27,7 +27,7 @@ from . import __version__, db
 
 OUT = os.path.abspath(os.environ.get("WEBENGINE_OUT", "webengine-rapports"))
 os.environ["WEBENGINE_OUT"] = OUT
-MAX_PAGES = int(os.environ.get("WEBENGINE_MAX_PAGES", "5000"))
+MAX_PAGES = int(os.environ.get("WEBENGINE_MAX_PAGES", "0"))   # 0 = sans limite
 MAX_GLOBAL = int(os.environ.get("WEBENGINE_MAX_GLOBAL", "3"))
 FORCE_AUTH = os.environ.get("WEBENGINE_AUTH", "") == "1"
 MAX_TRIES, WINDOW, BAN = 8, 600, 900
@@ -62,6 +62,19 @@ def _migrate_env_user():
 
 
 _migrate_env_user()
+
+
+def plafond(*valeurs):
+    """Plafond effectif : le plus petit de ceux qui sont definis. 0 = sans limite."""
+    reels = [int(v) for v in valeurs if v and int(v) > 0]
+    return min(reels) if reels else 0
+
+
+def libelle_plafond(v):
+    return "sans limite" if not v or int(v) <= 0 else "%s URL" % f"{int(v):,}".replace(",", " ")
+
+
+app.jinja_env.globals["libelle_plafond"] = libelle_plafond
 
 
 def auth_required():
@@ -260,8 +273,8 @@ LOGIN_BODY = """
 
 INDEX_BODY = """
 <h1>Lancer un crawl</h1>
-<p class="sub">Chaque crawl s'execute dans un process isole. Plafond de votre compte :
-  {{ user.max_pages }} URL par crawl, {{ user.max_parallel }} crawl(s) simultane(s).</p>
+<p class="sub">Chaque crawl s'execute dans un process isole. Votre compte :
+  {{ libelle_plafond(user.max_pages) }} par crawl, {{ user.max_parallel }} crawl(s) simultane(s).</p>
 
 <div class="card">
   <form id="f" enctype="multipart/form-data">
@@ -269,9 +282,9 @@ INDEX_BODY = """
     <label>URL du site</label>
     <input name="url" placeholder="https://exemple.fr" required>
     <div class="row">
-      <div><label>Pages max</label>
-        <input name="max_pages" type="number" value="{{ [500, user.max_pages]|min }}"
-               min="1" max="{{ user.max_pages }}"></div>
+      <div><label>Pages max <span class="mut" style="text-transform:none">(vide = tout le site)</span></label>
+        <input name="max_pages" type="number" placeholder="tout le site" min="0"
+               {% if user.max_pages and user.max_pages > 0 %}max="{{ user.max_pages }}"{% endif %}></div>
       <div><label>Threads</label><input name="threads" type="number" value="8" min="1" max="16"></div>
       <div><label>Profondeur</label><input name="max_depth" type="number" value="15" min="1"></div>
       <div><label>Delai (s)</label><input name="delay" type="number" value="0" min="0" max="5" step="0.1"></div>
@@ -357,7 +370,8 @@ ADMIN_BODY = """
       <div><label>Role</label><select name="role">
         <option value="user">utilisateur</option><option value="admin">administrateur</option>
       </select></div>
-      <div><label>URL max / crawl</label><input name="max_pages" type="number" value="1000" min="1"></div>
+      <div><label>URL max / crawl <span class="mut" style="text-transform:none">(0 = illimite)</span></label>
+        <input name="max_pages" type="number" value="0" min="0"></div>
       <div><label>Crawls simultanes</label><input name="max_parallel" type="number" value="1" min="1" max="5"></div>
     </div>
     <button type="submit">Creer le compte</button>
@@ -373,7 +387,7 @@ ADMIN_BODY = """
   <td>{% if u.role == 'admin' %}<span class="tag">admin</span>{% else %}utilisateur{% endif %}</td>
   <td>{% if u.active %}<span class="pill s-done">actif</span>
       {% else %}<span class="pill s-error">desactive</span>{% endif %}</td>
-  <td class="mut">{{ u.max_pages }} URL · {{ u.max_parallel }} //</td>
+  <td class="mut">{{ libelle_plafond(u.max_pages) }} · {{ u.max_parallel }} //</td>
   <td class="mut">{{ u.jobs_count }}</td>
   <td class="mut">{{ u.last_login_h }}</td>
   <td style="text-align:right;white-space:nowrap">
@@ -620,7 +634,7 @@ def setup():
         else:
             try:
                 db.create_user(request.form.get("username"), pwd, role="admin",
-                               max_pages=MAX_PAGES, max_parallel=MAX_GLOBAL)
+                               max_pages=0, max_parallel=MAX_GLOBAL)
                 flash("Compte administrateur cree, connectez-vous.", "ok")
                 return redirect(url_for("login"))
             except ValueError as exc:
@@ -694,7 +708,7 @@ def admin_create():
     try:
         db.create_user(request.form.get("username"), request.form.get("password") or "",
                        role="admin" if request.form.get("role") == "admin" else "user",
-                       max_pages=max(1, min(MAX_PAGES, int(request.form.get("max_pages") or 1000))),
+                       max_pages=plafond(MAX_PAGES, request.form.get("max_pages")),
                        max_parallel=max(1, min(5, int(request.form.get("max_parallel") or 1))))
         flash("Compte « %s » cree. Mot de passe : %s"
               % (request.form.get("username"), request.form.get("password")), "ok")
@@ -772,7 +786,7 @@ def api_crawl():
         up.save(gsc_path)
 
     params = {
-        "max_pages": max(1, min(u["max_pages"], int(request.form.get("max_pages") or 500))),
+        "max_pages": plafond(MAX_PAGES, u["max_pages"], request.form.get("max_pages")),
         "threads": max(1, min(16, int(request.form.get("threads") or 8))),
         "max_depth": max(1, min(50, int(request.form.get("max_depth") or 15))),
         "delay": max(0.0, min(5.0, float(request.form.get("delay") or 0))),

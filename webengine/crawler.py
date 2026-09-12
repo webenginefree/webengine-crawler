@@ -125,7 +125,7 @@ class CrawlResult:
 
 
 class Crawler:
-    def __init__(self, start_url, max_pages=500, max_depth=10, threads=8, delay=0.0,
+    def __init__(self, start_url, max_pages=0, max_depth=10, threads=8, delay=0.0,
                  user_agent=DEFAULT_UA, timeout=20, include_subdomains=False,
                  respect_robots=True, include_re=None, exclude_re=None,
                  use_sitemaps=True, check_external=False, progress=None, auth=None):
@@ -133,7 +133,8 @@ class Crawler:
         if not start:
             raise ValueError("URL de depart invalide: %s" % start_url)
         self.start_url = start
-        self.max_pages = max_pages
+        # 0 ou None = aucune limite : on crawle jusqu'a epuisement du site.
+        self.max_pages = max_pages if max_pages and max_pages > 0 else float("inf")
         self.max_depth = max_depth
         self.threads = max(1, threads)
         self.delay = delay

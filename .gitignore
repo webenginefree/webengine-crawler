@@ -1,5 +1,5 @@
 __pycache__/
 *.pyc
-webengine-rapports/
+*-rapports/
 rapport-*.html
 *.json.gz

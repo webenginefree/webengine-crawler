@@ -57,7 +57,7 @@ Options utiles :
 
 | Option | Effet |
 |---|---|
-| `-n, --max-pages` | nombre max d'URL (défaut 500) |
+| `-n, --max-pages` | plafond d'URL (**défaut : aucun**) |
 | `-t, --threads` | requêtes en parallèle (défaut 8) |
 | `--delay 0.3` | pause entre requêtes, pour ménager un petit serveur |
 | `--exclude "REGEX"` | ignorer des URL (`"/panier\|\?filtre="`) |
@@ -141,6 +141,24 @@ Seuils d'alerte : hausse d'au moins 10 pages **et** 5 % sur 7 jours, ou 25 pages
 `h1_doubles.csv`, `titles_doubles.csv`, `descriptions_doubles.csv`, `problemes.csv`,
 `liens_entrants.csv` et `search_console.csv`. Séparateur `;`, UTF-8 BOM : ça s'ouvre direct
 dans Excel / LibreOffice.
+
+## Gros crawls
+
+Il n'y a pas de plafond par défaut : le crawl s'arrête quand le site est épuisé. Trois points
+d'attention au-delà de quelques dizaines de milliers d'URL :
+
+- **Mémoire.** Le crawl tient en RAM (pages, liens entrants, empreintes). Comptez ~2 Ko par URL.
+  Chaque crawl lancé depuis l'interface web est plafonné par `WEBENGINE_JOB_MEM_MB` (2 Go par
+  défaut) ; au-delà il s'arrête proprement avec un message explicite plutôt que de faire tomber
+  le serveur.
+- **Rapport HTML.** Il embarque ses données, donc au-delà de `WEBENGINE_MAX_PAGES_HTML`
+  (25 000 URL par défaut) il n'en garde que les plus utiles — erreurs et pages peu profondes
+  d'abord — et l'affiche en bandeau. **Les exports CSV contiennent toujours la totalité.**
+- **Politesse.** Sans plafond, `--delay` et un nombre de threads raisonnable ne sont plus
+  optionnels sur un site de production.
+
+Pour limiter malgré tout : `-n 5000`, ou un quota par compte dans l'interface d'administration
+(0 = sans limite).
 
 ## Bonnes manières
 

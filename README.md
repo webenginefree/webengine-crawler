@@ -124,7 +124,7 @@ pip install -r requirements.txt
 ./webengine.sh crawl https://monsite.fr
 
 # crawl complet + Search Console + exports CSV + sauvegarde
-./webengine.sh crawl https://monsite.fr -n 5000 -t 10 --delay 0.2 \
+./webengine.sh crawl https://monsite.fr -t 10 --delay 0.2 \
     --gsc ~/Téléchargements/Pages.csv --csv ./exports --save crawl.json.gz
 
 # rejouer un croisement Search Console sans re-crawler
@@ -135,7 +135,7 @@ Sous Windows, remplacez `./webengine.sh` par `python -m webengine`.
 
 | Option | Effet |
 |---|---|
-| `-n, --max-pages` | nombre max d'URL (défaut 500) |
+| `-n, --max-pages` | plafond d'URL (**défaut : aucun**, on crawle tout le site) |
 | `-t, --threads` | requêtes en parallèle (défaut 8) |
 | `--delay 0.3` | pause entre requêtes, pour ménager un petit serveur |
 | `--gsc FICHIER` | export Search Console à croiser (.csv, .zip, .txt) |

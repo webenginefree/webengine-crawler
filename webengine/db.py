@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT NOT NULL,
     role          TEXT NOT NULL DEFAULT 'user',   -- 'admin' ou 'user'
     active        INTEGER NOT NULL DEFAULT 1,
-    max_pages     INTEGER NOT NULL DEFAULT 1000,  -- plafond par crawl
+    max_pages     INTEGER NOT NULL DEFAULT 0,     -- plafond par crawl, 0 = sans limite
     max_parallel  INTEGER NOT NULL DEFAULT 1,     -- crawls simultanes
     created_at    REAL NOT NULL,
     last_login    REAL
@@ -98,7 +98,7 @@ def init():
 
 
 # --------------------------------------------------------------------- users
-def create_user(username, password, role="user", max_pages=1000, max_parallel=1):
+def create_user(username, password, role="user", max_pages=0, max_parallel=1):
     username = (username or "").strip()
     if not username:
         raise ValueError("Nom d'utilisateur vide.")

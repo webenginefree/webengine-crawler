@@ -15,9 +15,13 @@ from .report import build_data, export_csv, render_html
 
 
 class Ticker:
-    """Barre de progression minimaliste."""
+    """Barre de progression minimaliste.
+
+    Sans plafond d'URL, le total est inconnu : la barre se base alors sur la part
+    d'URL deja traitees par rapport a tout ce qui a ete decouvert.
+    """
     def __init__(self, total):
-        self.total = total
+        self.total = total or 0
         self.last = 0
         self.t0 = time.time()
 
@@ -27,7 +31,10 @@ class Ticker:
             return
         self.last = now
         bar_w = 24
-        frac = min(1.0, crawled / max(1, self.total))
+        if self.total > 0:
+            frac = min(1.0, crawled / self.total)
+        else:
+            frac = crawled / max(1, crawled + queued)
         bar = "#" * int(frac * bar_w)
         rate = crawled / max(0.1, now - self.t0)
         sys.stderr.write("\r  [%-24s] %4d URL  file:%-4d  %4.1f/s  %s" % (
@@ -213,14 +220,15 @@ def cmd_users(args):
         if not users:
             print("Aucun compte. Le premier demarrage de l'interface web en proposera la creation.")
             return 0
-        print("%-20s %-8s %-10s %8s %6s %8s  %s" % ("COMPTE", "ROLE", "ETAT", "URL/CRAWL",
+        print("%-20s %-8s %-10s %9s %6s %8s  %s" % ("COMPTE", "ROLE", "ETAT", "URL/CRAWL",
                                                     "PARAL", "CRAWLS", "DERNIERE CONNEXION"))
         for u in users:
             last = (_time.strftime("%d/%m/%Y %H:%M", _time.localtime(u["last_login"]))
                     if u["last_login"] else "jamais")
-            print("%-20s %-8s %-10s %8d %6d %8d  %s" % (
+            print("%-20s %-8s %-10s %9s %6d %8d  %s" % (
                 u["username"], u["role"], "actif" if u["active"] else "desactive",
-                u["max_pages"], u["max_parallel"], u["jobs_count"], last))
+                "illimite" if not u["max_pages"] else u["max_pages"],
+                u["max_parallel"], u["jobs_count"], last))
         return 0
 
     if not args.username:
@@ -304,7 +312,8 @@ def build_parser():
 
     c = sub.add_parser("crawl", help="crawler un site et generer le rapport")
     c.add_argument("url")
-    c.add_argument("-n", "--max-pages", type=int, default=500, help="nb max d'URL (defaut 500)")
+    c.add_argument("-n", "--max-pages", type=int, default=0,
+                   help="nb max d'URL (defaut : aucune limite)")
     c.add_argument("-d", "--max-depth", type=int, default=15, help="profondeur max (defaut 15)")
     c.add_argument("-t", "--threads", type=int, default=8, help="threads (defaut 8)")
     c.add_argument("--delay", type=float, default=0.0, help="pause entre requetes, en s")
@@ -347,7 +356,8 @@ def build_parser():
     us.add_argument("username", nargs="?")
     us.add_argument("--password", help="sinon demande, ou genere")
     us.add_argument("--admin", action="store_true", help="creer un administrateur")
-    us.add_argument("--max-pages", type=int, default=1000, dest="max_pages")
+    us.add_argument("--max-pages", type=int, default=0, dest="max_pages",
+                    help="plafond d'URL par crawl (0 = sans limite)")
     us.add_argument("--parallel", type=int, default=1, help="crawls simultanes autorises")
     us.set_defaults(func=cmd_users)
 

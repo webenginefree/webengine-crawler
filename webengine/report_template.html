@@ -129,6 +129,15 @@ const statusPill = s => { if(s===null||s===undefined) return '<span class="pill 
 const sevPill = s => '<span class="pill sev-'+s+'">'+s+'</span>';
 
 document.getElementById('site').textContent = D.meta.start_url;
+if (D.meta.tronque) {
+  const b = document.createElement('div');
+  b.style.cssText = 'background:var(--mid-bg);color:var(--mid);padding:9px 20px;font-size:13px;' +
+    'border-bottom:1px solid var(--line)';
+  b.textContent = 'Crawl de ' + nb(D.meta.pages_totales) + ' URL — ce rapport en affiche ' +
+    nb(D.meta.pages_affichees) + ' (les erreurs et les pages les moins profondes en priorite). ' +
+    'Les exports CSV, eux, contiennent la totalite.';
+  document.querySelector('header').after(b);
+}
 document.getElementById('when').textContent = D.meta.date + ' · ' + D.meta.duree + 's de crawl';
 
 /* ------------------------------------------------------------------ vues */

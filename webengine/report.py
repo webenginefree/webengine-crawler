@@ -12,6 +12,9 @@ from .analyze import analyze, summary
 
 TPL = os.path.join(os.path.dirname(os.path.abspath(__file__)), "report_template.html")
 MAX_INLINKS = 150
+# Le rapport embarque toutes ses donnees : au-dela, le fichier devient trop lourd
+# pour un navigateur. Les URL en trop sont retirees du HTML, jamais des CSV.
+MAX_PAGES_HTML = int(os.environ.get("WEBENGINE_MAX_PAGES_HTML", "25000"))
 
 
 def build_data(result, gsc_items=None, params=None):
@@ -36,6 +39,17 @@ def build_data(result, gsc_items=None, params=None):
     for src, targets in result.outlinks.items():
         outlinks[src] = list(dict.fromkeys(targets))[:200]
 
+    toutes = sorted(result.pages.values(), key=lambda x: (x.depth, x.url))
+    tronque = len(toutes) > MAX_PAGES_HTML
+    # on garde en priorite ce qui pose probleme, puis les pages les moins profondes
+    if tronque:
+        souci = [p for p in toutes if p.status != 200 or not p.is_html]
+        reste = [p for p in toutes if p.status == 200 and p.is_html]
+        pages_html = (souci + reste)[:MAX_PAGES_HTML]
+        pages_html.sort(key=lambda x: (x.depth, x.url))
+    else:
+        pages_html = toutes
+
     data = {
         "meta": {
             "start_url": result.start_url,
@@ -44,12 +58,14 @@ def build_data(result, gsc_items=None, params=None):
             "duree": result.duration,
             "version": __version__,
             "params": params or {},
+            "tronque": tronque,
+            "pages_totales": len(toutes),
+            "pages_affichees": len(pages_html),
         },
         "resume": res,
         "issues": an["issues"],
         "doublons": an["doublons"],
-        "pages": [p.as_dict() for p in sorted(result.pages.values(),
-                                              key=lambda x: (x.depth, x.url))],
+        "pages": [p.as_dict() for p in pages_html],
         "inlinks": inlinks,
         "outlinks": outlinks,
         "externes": sorted(

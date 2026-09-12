@@ -20,7 +20,7 @@ from . import db
 from .crawler import Crawler, DEFAULT_UA
 from .report import build_data, export_csv, render_html
 
-MEM_MB = int(os.environ.get("WEBENGINE_JOB_MEM_MB", "1024"))
+MEM_MB = int(os.environ.get("WEBENGINE_JOB_MEM_MB", "2048"))
 NICE = int(os.environ.get("WEBENGINE_JOB_NICE", "5"))
 
 
@@ -66,7 +66,9 @@ def run(jid):
         if now - last[0] < 1.5:
             return
         last[0] = now
-        db.update_job(jid, pct=min(99.0, crawled / max(1, params["max_pages"]) * 100),
+        plafond = params.get("max_pages") or 0
+        pct = (crawled / plafond * 100) if plafond > 0 else (crawled / max(1, crawled + queued) * 100)
+        db.update_job(jid, pct=min(99.0, pct),
                       crawled=crawled,
                       message="%d URL crawlees · %d en file · %s" % (crawled, queued, url[-70:]))
         fresh = db.get_job(jid)
